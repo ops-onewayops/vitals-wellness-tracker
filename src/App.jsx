@@ -36,14 +36,17 @@ const NAV_PAGES=[
   {id:"body",label:"Body",icon:"📏",color:G.blue},
   {id:"ai",label:"AI Insights",icon:"🧠",color:G.moss},
   {id:"workout",label:"Workout Builder",icon:"⚡",color:G.amber},
+  {id:"feedback",label:"Feedback",icon:"💬",color:G.blue},
   {id:"settings",label:"Settings",icon:"⚙️",color:G.sub},
 ];
 
 const DEF={
-  profile:{name:"Tristan",age:25,dairy:true,goals:["Muscle Mass","Explosiveness","Strength"],units:"imperial"},
+  profile:{name:"",age:"",allergies:"",goals:["Muscle Mass","Strength"],units:"imperial",
+    targets:{calories:2800,protein:180,water:100},
+    customAllergies:""},
   nutrition:[],training:[],postWorkout:[],prs:[],painLog:[],bodyMetrics:[],sleep:[],lifestyle:[],
   hydration:[],supplements:[],healthImports:[],heartRate:[],ecg:[],bloodOx:[],respiratory:[],stepsData:[],watchWorkouts:[],
-  insights:[],aiMemory:[],
+  insights:[],aiMemory:[],suppStacks:[],feedback:[],
 };
 function vo2(d,t){const m=d*1609.34;return Math.round(((m*(12/t)-504.9)/44.73)*10)/10;}
 
@@ -161,7 +164,8 @@ function BottomNav({current,onNav}){
 }
 
 // ─── HOME PAGE ───
-function HomePage({data,go}){
+function HomePage({data,go,onQuickLog}){
+  const p=data.profile;const tgt=p.targets||{calories:2800,protein:180,water:100};
   const tn=data.nutrition.filter(n=>n.date===td());const tc=tn.reduce((s,n)=>s+(Number(n.calories)||0),0);const tp=tn.reduce((s,n)=>s+(Number(n.protein)||0),0);
   const todayH=data.hydration.filter(h=>h.date===td()).reduce((s,h)=>s+(Number(h.oz)||0),0);
   const rs=data.sleep.slice(-7);const avgSleep=rs.length?(rs.reduce((s,e)=>s+Number(e.hours),0)/rs.length).toFixed(1):"—";
@@ -171,9 +175,19 @@ function HomePage({data,go}){
   const latestSpO2=data.bloodOx.length?data.bloodOx[data.bloodOx.length-1]:null;
   const latestSteps=data.stepsData.length?data.stepsData[data.stepsData.length-1]:null;
   const ap=data.painLog.filter(p=>!p.resolved).length;
+  const name=p.name||"";
+  // Staleness checks
+  const lastSleep=data.sleep.length?data.sleep[data.sleep.length-1].date:null;
+  const lastTrain=data.training.length?data.training[data.training.length-1].date:null;
+  const daysSince=(d)=>{if(!d)return 999;return Math.floor((new Date()-new Date(d+"T12:00"))/(86400000));};
+  const nudges=[];
+  if(daysSince(lastSleep)>=2)nudges.push({t:"No sleep logged in "+daysSince(lastSleep)+"d",c:G.purple,go:"sleep"});
+  if(daysSince(lastTrain)>=3)nudges.push({t:"No training in "+daysSince(lastTrain)+"d",c:G.orange,go:"train"});
+  if(tc===0&&hr()>=12)nudges.push({t:"No meals logged today",c:G.moss,go:"nutr"});
+  // Onboarding check
+  const needsSetup=!p.name;
 
   return <div style={{position:"relative"}}>
-    {/* Ambient background glows */}
     <div style={{position:"absolute",top:-40,left:-60,width:300,height:300,background:"radial-gradient(circle,rgba(45,211,111,.15) 0%,transparent 70%)",pointerEvents:"none",zIndex:0}}/>
     <div style={{position:"absolute",top:200,right:-80,width:300,height:300,background:"radial-gradient(circle,rgba(180,142,255,.12) 0%,transparent 70%)",pointerEvents:"none",zIndex:0}}/>
     <div style={{position:"absolute",top:500,left:-40,width:250,height:250,background:"radial-gradient(circle,rgba(34,211,238,.1) 0%,transparent 70%)",pointerEvents:"none",zIndex:0}}/>
@@ -183,16 +197,25 @@ function HomePage({data,go}){
       <div style={{marginBottom:28,paddingTop:8}}>
         <div style={{fontSize:13,color:G.dim,fontWeight:500}}>{new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</div>
         <div style={{fontSize:34,fontWeight:800,color:G.txt,marginTop:4,letterSpacing:-.5,lineHeight:1.1}}>
-          {hr()<12?"Good Morning":"Good Afternoon"}<span style={{color:G.moss}}>.</span>
+          {hr()<12?"Good Morning":hr()<18?"Good Afternoon":"Good Evening"}{name?`, ${name}`:""}<span style={{color:G.moss}}>.</span>
         </div>
       </div>
 
-      {/* Hero rings card with glow */}
+      {/* Onboarding prompt */}
+      {needsSetup&&<Glass glow={`radial-gradient(circle,${G.amber}25,transparent 70%)`} style={{marginBottom:16,borderRadius:20,cursor:"pointer"}} onClick={()=>go("settings")}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <span style={{fontSize:28}}>👋</span>
+          <div><div style={{fontSize:14,fontWeight:700,color:G.txt}}>Welcome to Vitals</div>
+          <div style={{fontSize:12,color:G.dim,marginTop:2}}>Tap here to set up your profile, goals, and macro targets.</div></div>
+        </div>
+      </Glass>}
+
+      {/* Hero rings card with dynamic targets */}
       <Glass glow="radial-gradient(circle at 30% 50%, rgba(45,211,111,.3), rgba(255,159,67,.2) 50%, rgba(34,211,238,.2) 100%)" style={{marginBottom:16,borderRadius:24,overflow:"hidden"}}>
         <div style={{display:"flex",justifyContent:"space-around",alignItems:"center",padding:"8px 0"}}>
-          {[{p:Math.round((tc/2800)*100),v:tc,u:"/2800",l:"Calories",c:G.moss,go:"nutr"},
-            {p:Math.round((tp/180)*100),v:tp+"g",u:"/180g",l:"Protein",c:G.orange,go:"nutr"},
-            {p:Math.round((todayH/100)*100),v:todayH,u:"/100oz",l:"Water",c:G.teal,go:"hydra"}].map((r,i)=>
+          {[{p:Math.round((tc/tgt.calories)*100),v:tc,u:`/${tgt.calories}`,l:"Calories",c:G.moss,go:"nutr"},
+            {p:Math.round((tp/tgt.protein)*100),v:tp+"g",u:`/${tgt.protein}g`,l:"Protein",c:G.orange,go:"nutr"},
+            {p:Math.round((todayH/tgt.water)*100),v:todayH,u:`/${tgt.water}oz`,l:"Water",c:G.teal,go:"hydra"}].map((r,i)=>
             <div key={i} style={{textAlign:"center",cursor:"pointer"}} onClick={()=>go(r.go)}>
               <Ring pct={r.p} size={92} stroke={9} color={r.c} trackColor={`${r.c}25`}>
                 <div style={{fontSize:21,fontWeight:800,color:r.c}}>{r.v}</div>
@@ -203,7 +226,26 @@ function HomePage({data,go}){
         </div>
       </Glass>
 
-      {/* Vitals grid - staggered */}
+      {/* Quick-log actions */}
+      <div style={{display:"flex",gap:8,marginBottom:14}}>
+        {[{l:"+ Meal",icon:"🍽️",c:G.moss,go:"nutr"},{l:"+ Water",icon:"💧",c:G.teal,action:"water"},{l:"+ Workout",icon:"💪",c:G.orange,go:"train"},{l:"+ Sleep",icon:"🌙",c:G.purple,go:"sleep"}].map((a,i)=>
+          <button key={i} onClick={()=>{if(a.action==="water"){onQuickLog("water");}else go(a.go);}}
+            style={{flex:1,background:`${a.c}12`,border:`1px solid ${a.c}25`,borderRadius:14,padding:"10px 4px",cursor:"pointer",fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+            <span style={{fontSize:16}}>{a.icon}</span>
+            <span style={{fontSize:10,fontWeight:700,color:a.c}}>{a.l}</span>
+          </button>)}
+      </div>
+
+      {/* Staleness nudges */}
+      {nudges.length>0&&<div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:14}}>
+        {nudges.map((n,i)=><div key={i} onClick={()=>go(n.go)} style={{background:`${n.c}10`,border:`1px solid ${n.c}20`,borderRadius:12,padding:"8px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
+          <div style={{width:6,height:6,borderRadius:3,background:n.c}}/>
+          <span style={{fontSize:12,color:n.c,fontWeight:600}}>{n.t}</span>
+          <span style={{marginLeft:"auto",fontSize:11,color:G.dim}}>→</span>
+        </div>)}
+      </div>}
+
+      {/* Vitals grid */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
         <GradCard colors={G.gPurple} style={{gridRow:"span 2",minHeight:160}} onClick={()=>go("health")}>
           <div style={{fontSize:11,opacity:.8,fontWeight:700,letterSpacing:.5}}>Heart Rate</div>
@@ -232,7 +274,6 @@ function HomePage({data,go}){
         </Glass>
       </div>
 
-      {/* Health vitals strip */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
         <Glass glow={`radial-gradient(circle,${G.blue}20,transparent 70%)`} style={{borderRadius:18,padding:14}} onClick={()=>go("health")}>
           <div style={{textAlign:"center"}}><div style={{fontSize:9,color:G.dim,fontWeight:700,letterSpacing:.5}}>SpO2</div>
@@ -244,7 +285,6 @@ function HomePage({data,go}){
         </Glass>
       </div>
 
-      {/* Quick status pills */}
       <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
         <div style={{background:G.glass2,backdropFilter:G.blur,borderRadius:20,padding:"6px 14px",border:`1px solid ${G.glassBorder}`,display:"flex",alignItems:"center",gap:6}}>
           <div style={{width:6,height:6,borderRadius:3,background:G.purple}}/>
@@ -256,7 +296,6 @@ function HomePage({data,go}){
         </div>}
       </div>
 
-      {/* Latest insight */}
       {data.insights.length>0&&<Glass glow={`radial-gradient(circle at 0% 50%,${G.moss}20,transparent 60%)`} style={{marginBottom:16,borderRadius:20}} onClick={()=>go("ai")}>
         <div style={{fontSize:10,fontWeight:700,color:G.moss,letterSpacing:1.5,marginBottom:8}}>⬡ AI INSIGHT</div>
         <div style={{fontSize:13,color:G.sub,lineHeight:1.6}}>{data.insights[data.insights.length-1].text?.slice(0,200)}...</div>
@@ -312,26 +351,111 @@ sleep:{"hours":N,"deep":N,"rem":N,"core":N,"awake":N,"bedtime":"HH:MM","wakeTime
 function NutrPage({data,setData}){
   const [m,sm]=useState(false);const [aiL,sAL]=useState(false);const [aiR,sAR]=useState(null);
   const [f,sf]=useState({meal:"Breakfast",food:"",calories:"",protein:"",carbs:"",fat:"",date:td()});const fr=useRef();
-  const te=data.nutrition.filter(n=>n.date===td());const tc=te.reduce((s,n)=>s+(Number(n.calories)||0),0);const tp=te.reduce((s,n)=>s+(Number(n.protein)||0),0);const tcarb=te.reduce((s,n)=>s+(Number(n.carbs)||0),0);const tf=te.reduce((s,n)=>s+(Number(n.fat)||0),0);
+  const [aiText,setAiText]=useState("");const [aiTextL,setAiTextL]=useState(false);const [aiTextItems,setAiTextItems]=useState([]);
+  const [viewDate,setViewDate]=useState(td());const [showChart,setShowChart]=useState(false);
+  const te=data.nutrition.filter(n=>n.date===viewDate);const tc=te.reduce((s,n)=>s+(Number(n.calories)||0),0);const tp=te.reduce((s,n)=>s+(Number(n.protein)||0),0);const tcarb=te.reduce((s,n)=>s+(Number(n.carbs)||0),0);const tf=te.reduce((s,n)=>s+(Number(n.fat)||0),0);
   const add=()=>{if(!f.food)return;const nd={...data,nutrition:[...data.nutrition,{...f,id:uid()}]};setData(nd);sv(nd);sm(false);sf({meal:"Breakfast",food:"",calories:"",protein:"",carbs:"",fat:"",date:td()});};
   const del=id=>{const nd={...data,nutrition:data.nutrition.filter(n=>n.id!==id)};setData(nd);sv(nd);};
   const snap=async(file)=>{sAL(true);sAR(null);try{const b64=await toB64(file);const bd=b64.split(",")[1];
-    const txt=await callClaude({system:"Nutrition analyst. Accurate macros. Pure JSON. Flag dairy.",messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:bd}},{type:"text",text:`Food photo. DAIRY ALLERGY. JSON: {"food":"desc","calories":N,"protein":N,"carbs":N,"fat":N,"dairy_warning":bool,"notes":"obs"}`}]}]});
+    const txt=await callClaude({system:`Nutrition analyst. Accurate macros. Pure JSON.${data.profile.allergies?` Flag these allergens/restrictions: ${data.profile.allergies}.`:""}`,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:bd}},{type:"text",text:`Food photo.${data.profile.allergies?` ALLERGIES: ${data.profile.allergies}.`:""} JSON: {"food":"desc","calories":N,"protein":N,"carbs":N,"fat":N,"dairy_warning":bool,"notes":"obs"}`}]}]});
     const p=JSON.parse(txt.replace(/```json|```/g,"").trim());sAR(p);sf({...f,food:p.food||"",calories:String(p.calories||""),protein:String(p.protein||""),carbs:String(p.carbs||""),fat:String(p.fat||"")});
   }catch(e){sAR({error:e.message||"Failed."});}sAL(false);};
-  return <div><Section title="Nutrition" action="+ Manual" onAction={()=>{sAR(null);sm(true);}}>
-    <Btn onClick={()=>{sAR(null);fr.current?.click();}} v="secondary" sx={{width:"100%",marginBottom:14,padding:14}}>📸 Snap & Analyze</Btn>
+
+  // AI text-based food analysis
+  const analyzeText=async()=>{if(!aiText.trim())return;setAiTextL(true);setAiTextItems([]);try{
+    const txt=await callClaude({system:`You are a precise nutrition analyst. The user will describe food items with approximate portions. Return accurate macros for EACH item separately. Be precise about portion sizes — use USDA data as reference.${data.profile.allergies?` Flag any items containing: ${data.profile.allergies}.`:""}
+Return ONLY valid JSON array, no markdown: [{"food":"item description with portion","calories":N,"protein":N,"carbs":N,"fat":N,"dairy_warning":false}]
+Example: "half avocado, 150g chicken breast, cup of rice" → 3 separate items with accurate per-item macros.
+Be specific: "half avocado (~68g)" not just "avocado". Round to whole numbers.`,
+      messages:[{role:"user",content:`Analyze these foods and give me accurate macros for each item: ${aiText}`}]});
+    const parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());
+    const items=Array.isArray(parsed)?parsed:[parsed];
+    setAiTextItems(items);
+  }catch(e){setAiTextItems([{error:e.message||"Failed to analyze."}]);}setAiTextL(false);};
+
+  const addAiItem=(item)=>{const entry={meal:f.meal,food:item.food,calories:String(item.calories||0),protein:String(item.protein||0),carbs:String(item.carbs||0),fat:String(item.fat||0),date:f.date,id:uid()};const nd={...data,nutrition:[...data.nutrition,entry]};setData(nd);sv(nd);};
+  const addAllAiItems=()=>{const entries=aiTextItems.filter(i=>!i.error).map(item=>({meal:f.meal,food:item.food,calories:String(item.calories||0),protein:String(item.protein||0),carbs:String(item.carbs||0),fat:String(item.fat||0),date:f.date,id:uid()}));const nd={...data,nutrition:[...data.nutrition,...entries]};setData(nd);sv(nd);setAiText("");setAiTextItems([]);sm(false);};
+
+  // 7-day chart data
+  const chartData=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(6-i));const ds=d.toISOString().split("T")[0];const dn=data.nutrition.filter(n=>n.date===ds);return{day:d.toLocaleDateString("en-US",{weekday:"short"}),cal:dn.reduce((s,n)=>s+(Number(n.calories)||0),0),prot:dn.reduce((s,n)=>s+(Number(n.protein)||0),0)};});
+
+  // Date navigation
+  const shiftDate=(dir)=>{const d=new Date(viewDate+"T12:00");d.setDate(d.getDate()+dir);setViewDate(d.toISOString().split("T")[0]);};
+
+  return <div><Section title="Nutrition" action="+ Manual" onAction={()=>{sAR(null);setAiTextItems([]);sm(true);}}>
+    <div style={{display:"flex",gap:8,marginBottom:14}}>
+      <Btn onClick={()=>{sAR(null);setAiTextItems([]);fr.current?.click();}} v="secondary" sx={{flex:1,padding:12}}>📸 Photo</Btn>
+      <Btn onClick={()=>{sAR(null);setAiTextItems([]);sm(true);}} v="secondary" sx={{flex:1,padding:12,background:`${G.moss}18`,color:G.moss,border:`1px solid ${G.moss}30`}}>✍️ AI Text</Btn>
+    </div>
     <input ref={fr} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={e=>{if(e.target.files[0]){snap(e.target.files[0]);sm(true);}}}/></Section>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:18}}>
       {[{l:"Kcal",v:tc,c:G.moss},{l:"Prot",v:tp+"g",c:G.orange},{l:"Carb",v:tcarb+"g",c:G.blue},{l:"Fat",v:tf+"g",c:G.purple}].map((x,i)=>
         <Glass key={i} style={{padding:10,borderRadius:14,textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,color:x.c}}>{x.v}</div><div style={{fontSize:9,color:G.dim,fontWeight:600}}>{x.l}</div></Glass>)}
     </div>
-    <div style={{fontSize:13,fontWeight:600,color:G.dim,marginBottom:8}}>Today</div>
-    {te.length===0?<div style={{textAlign:"center",padding:28,color:G.dim}}>No meals</div>:te.map(n=><EI key={n.id} primary={n.food} secondary={`${n.meal} · P:${n.protein}g C:${n.carbs}g F:${n.fat}g`} tertiary={n.calories} color={G.moss} onDelete={()=>del(n.id)}/>)}
-    <Modal open={m} onClose={()=>sm(false)} title="Log Meal">
-      {aiL&&<div style={{textAlign:"center",padding:20,color:G.moss}}>Analyzing...</div>}
+
+    {/* 7-day trend toggle */}
+    <div style={{marginBottom:14}}>
+      <Btn onClick={()=>setShowChart(!showChart)} v="ghost" sx={{fontSize:12,padding:"4px 0",color:G.dim}}>
+        {showChart?"Hide":"Show"} 7-Day Trend {showChart?"▲":"▼"}
+      </Btn>
+      {showChart&&<Glass style={{marginTop:8,borderRadius:16,padding:"14px 8px 6px"}}>
+        <ResponsiveContainer width="100%" height={120}>
+          <BarChart data={chartData} barGap={2}>
+            <XAxis dataKey="day" tick={{fill:G.dim,fontSize:10}} axisLine={false} tickLine={false}/>
+            <Tooltip contentStyle={{background:"#1a1b26",border:`1px solid ${G.glassBorder2}`,borderRadius:12,fontSize:12}} labelStyle={{color:G.txt}} itemStyle={{color:G.sub}}/>
+            <Bar dataKey="cal" fill={G.moss} radius={[4,4,0,0]} name="Calories"/>
+            <Bar dataKey="prot" fill={G.orange} radius={[4,4,0,0]} name="Protein (g)"/>
+          </BarChart>
+        </ResponsiveContainer>
+      </Glass>}
+    </div>
+
+    {/* Date nav */}
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+      <button onClick={()=>shiftDate(-1)} style={{background:G.glass2,border:`1px solid ${G.glassBorder}`,borderRadius:10,width:32,height:32,color:G.sub,cursor:"pointer",fontSize:14}}>‹</button>
+      <span style={{fontSize:13,fontWeight:600,color:viewDate===td()?G.moss:G.sub}}>{viewDate===td()?"Today":new Date(viewDate+"T12:00").toLocaleDateString("en-US",{month:"short",day:"numeric",weekday:"short"})}</span>
+      <button onClick={()=>shiftDate(1)} style={{background:G.glass2,border:`1px solid ${G.glassBorder}`,borderRadius:10,width:32,height:32,color:G.sub,cursor:"pointer",fontSize:14}}>›</button>
+    </div>
+
+    {te.length===0?<div style={{textAlign:"center",padding:28,color:G.dim}}>No meals logged</div>:te.map(n=><EI key={n.id} primary={n.food} secondary={`${n.meal} · P:${n.protein}g C:${n.carbs}g F:${n.fat}g`} tertiary={n.calories} color={G.moss} onDelete={()=>del(n.id)}/>)}
+    <Modal open={m} onClose={()=>{sm(false);setAiTextItems([]);}} title="Log Meal">
+      {aiL&&<div style={{textAlign:"center",padding:20,color:G.moss}}>Analyzing photo...</div>}
       {aiR?.error&&<Glass style={{marginBottom:14}}><div style={{color:G.red,fontSize:13}}>{aiR.error}</div></Glass>}
       {aiR&&!aiR.error&&<Glass style={{marginBottom:14}}><div style={{fontSize:13,fontWeight:700,color:G.moss}}>✓ {aiR.food}</div>{aiR.dairy_warning&&<div style={{fontSize:12,color:G.red,fontWeight:600,marginTop:4}}>⚠ Dairy detected</div>}</Glass>}
+
+      {/* AI Text Entry */}
+      <Glass style={{marginBottom:16,borderRadius:16,padding:14,borderLeft:`3px solid ${G.moss}`}}>
+        <div style={{fontSize:13,fontWeight:700,color:G.moss,marginBottom:8}}>✍️ Describe Your Food</div>
+        <div style={{fontSize:11,color:G.dim,marginBottom:10,lineHeight:1.5}}>Type what you ate with portions — AI returns accurate macros for each item.</div>
+        <textarea value={aiText} onChange={e=>setAiText(e.target.value)} placeholder="e.g. half an avocado, 150g chicken breast, cup of brown rice, tbsp olive oil" style={{width:"100%",background:G.glass2,border:`1px solid ${G.glassBorder}`,borderRadius:12,padding:"12px 14px",color:G.txt,fontSize:14,outline:"none",fontFamily:"inherit",boxSizing:"border-box",minHeight:60,resize:"vertical"}}/>
+        <Btn onClick={analyzeText} disabled={aiTextL||!aiText.trim()} sx={{width:"100%",marginTop:8,padding:12}} v={aiText.trim()?"primary":"secondary"}>
+          {aiTextL?"Analyzing...":"🧠 Get Macros"}
+        </Btn>
+      </Glass>
+
+      {/* AI Text Results */}
+      {aiTextItems.length>0&&!aiTextItems[0]?.error&&<div style={{marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <span style={{fontSize:13,fontWeight:700,color:G.moss}}>✓ {aiTextItems.length} item{aiTextItems.length>1?"s":""} found</span>
+          <Btn onClick={addAllAiItems} v="primary" sx={{fontSize:11,padding:"6px 14px"}}>Log All</Btn>
+        </div>
+        {aiTextItems.map((item,i)=>{
+          const totC=Number(item.calories)||0;
+          return <div key={i} style={{background:G.glass,borderRadius:14,padding:"10px 14px",marginBottom:6,border:`1px solid ${G.glassBorder}`,display:"flex",alignItems:"center",gap:10}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,color:G.txt,fontWeight:600}}>{item.food}</div>
+              <div style={{fontSize:11,color:G.dim,marginTop:2}}>P:{item.protein}g · C:{item.carbs}g · F:{item.fat}g</div>
+              {item.dairy_warning&&<div style={{fontSize:10,color:G.red,fontWeight:600,marginTop:2}}>⚠ Dairy</div>}
+            </div>
+            <div style={{fontSize:16,fontWeight:800,color:G.moss,minWidth:40,textAlign:"right"}}>{totC}</div>
+            <button onClick={()=>addAiItem(item)} style={{background:`${G.moss}20`,border:`1px solid ${G.moss}30`,borderRadius:10,width:28,height:28,color:G.moss,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+          </div>;
+        })}
+      </div>}
+      {aiTextItems[0]?.error&&<Glass style={{marginBottom:14}}><div style={{color:G.red,fontSize:13}}>{aiTextItems[0].error}</div></Glass>}
+
+      <div style={{height:1,background:G.glassBorder,margin:"8px 0 16px"}}/>
+      <div style={{fontSize:12,fontWeight:700,color:G.dim,marginBottom:10}}>OR ENTER MANUALLY</div>
       <Fld label="Date" type="date" value={f.date} set={v=>sf({...f,date:v})}/><Fld label="Meal" opts={["Breakfast","Lunch","Dinner","Snack","Pre-workout","Post-workout"]} value={f.meal} set={v=>sf({...f,meal:v})}/><Fld label="Food" value={f.food} set={v=>sf({...f,food:v})} ph="e.g. Chicken & rice"/>
       <div style={{display:"flex",gap:8}}><div style={{flex:1}}><Fld label="Cal" type="number" value={f.calories} set={v=>sf({...f,calories:v})}/></div><div style={{flex:1}}><Fld label="Prot" type="number" value={f.protein} set={v=>sf({...f,protein:v})}/></div></div>
       <div style={{display:"flex",gap:8}}><div style={{flex:1}}><Fld label="Carb" type="number" value={f.carbs} set={v=>sf({...f,carbs:v})}/></div><div style={{flex:1}}><Fld label="Fat" type="number" value={f.fat} set={v=>sf({...f,fat:v})}/></div></div>
@@ -366,38 +490,119 @@ function TrainPage({data,setData}){
 }
 // ─── HYDRATION ───
 function HydraPage({data,setData}){
-  const [m,sm]=useState(false);const [f,sf]=useState({oz:"8",type:"Water",date:td(),time:new Date().toTimeString().slice(0,5)});
-  const tH=data.hydration.filter(h=>h.date===td());const tot=tH.reduce((s,h)=>s+(Number(h.oz)||0),0);const goal=100;
+  const [m,sm]=useState(false);const [showChart,setShowChart]=useState(false);
+  const [f,sf]=useState({oz:"8",type:"Water",date:td(),time:new Date().toTimeString().slice(0,5)});
+  const tH=data.hydration.filter(h=>h.date===td());const tot=tH.reduce((s,h)=>s+(Number(h.oz)||0),0);const goal=data.profile?.targets?.water||100;
   const qA=oz=>{const nd={...data,hydration:[...data.hydration,{oz:String(oz),type:"Water",date:td(),time:new Date().toTimeString().slice(0,5),id:uid()}]};setData(nd);sv(nd);};
   const add=()=>{const nd={...data,hydration:[...data.hydration,{...f,id:uid()}]};setData(nd);sv(nd);sm(false);};
   const del=id=>{const nd={...data,hydration:data.hydration.filter(h=>h.id!==id)};setData(nd);sv(nd);};
   let streak=0;for(let i=0;i<30;i++){const d=new Date();d.setDate(d.getDate()-i);const ds=d.toISOString().split("T")[0];if(data.hydration.filter(h=>h.date===ds).reduce((s,h)=>s+(Number(h.oz)||0),0)>=goal)streak++;else if(i>0)break;}
+  const chartData=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-(6-i));const ds=d.toISOString().split("T")[0];return{day:d.toLocaleDateString("en-US",{weekday:"short"}),oz:data.hydration.filter(h=>h.date===ds).reduce((s,h)=>s+(Number(h.oz)||0),0)};});
   return <div><Section title="Hydration" action="+ Custom" onAction={()=>sm(true)}>
     <div style={{textAlign:"center",marginBottom:20}}><Ring pct={(tot/goal)*100} size={160} stroke={14} color={G.teal} trackColor={`${G.teal}25`}><div style={{fontSize:38,fontWeight:800,color:G.teal}}>{tot}</div><div style={{fontSize:12,color:G.dim}}>/{goal}oz</div>{tot>=goal&&<div style={{fontSize:11,color:G.moss,fontWeight:600}}>✓</div>}</Ring></div>
     <div style={{display:"flex",gap:8,marginBottom:16,justifyContent:"center",flexWrap:"wrap"}}>{[8,12,16,24,32].map(oz=><button key={oz} onClick={()=>qA(oz)} style={{background:`${G.teal}15`,border:`1px solid ${G.teal}25`,borderRadius:24,padding:"8px 16px",color:G.teal,fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+{oz}</button>)}</div></Section>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:18}}><GradCard colors={G.gTeal}><div style={{fontSize:11,opacity:.8}}>Streak</div><div style={{fontSize:28,fontWeight:800}}>{streak}</div><div style={{fontSize:11,opacity:.7}}>days</div></GradCard><Glass style={{padding:14,borderRadius:20}}><div style={{fontSize:9,color:G.dim,fontWeight:600}}>Remaining</div><div style={{fontSize:28,fontWeight:800,color:tot>=goal?G.moss:G.orange}}>{Math.max(0,goal-tot)}</div><div style={{fontSize:11,color:G.dim}}>oz</div></Glass></div>
+    {/* 7-day trend */}
+    <div style={{marginBottom:14}}>
+      <Btn onClick={()=>setShowChart(!showChart)} v="ghost" sx={{fontSize:12,padding:"4px 0",color:G.dim}}>
+        {showChart?"Hide":"Show"} 7-Day Intake {showChart?"▲":"▼"}
+      </Btn>
+      {showChart&&<Glass style={{marginTop:8,borderRadius:16,padding:"14px 8px 6px"}}>
+        <ResponsiveContainer width="100%" height={110}>
+          <BarChart data={chartData}>
+            <XAxis dataKey="day" tick={{fill:G.dim,fontSize:10}} axisLine={false} tickLine={false}/>
+            <Tooltip contentStyle={{background:"#1a1b26",border:`1px solid ${G.glassBorder2}`,borderRadius:12,fontSize:12}} labelStyle={{color:G.txt}}/>
+            <Bar dataKey="oz" radius={[4,4,0,0]} name="oz">
+              {chartData.map((entry,i)=><Cell key={i} fill={entry.oz>=goal?G.teal:entry.oz>=60?G.orange:G.red}/>)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </Glass>}
+    </div>
     <div style={{fontSize:13,fontWeight:600,color:G.dim,marginBottom:8}}>Today</div>
     {tH.slice().reverse().map(h=><EI key={h.id} primary={`${h.oz}oz ${h.type||"Water"}`} secondary={h.time} color={G.teal} onDelete={()=>del(h.id)}/>)}
     <Modal open={m} onClose={()=>sm(false)} title="Log"><Fld label="oz" type="number" value={f.oz} set={v=>sf({...f,oz:v})}/><Fld label="Type" opts={["Water","Electrolytes","Tea","Coffee","Juice","Smoothie"]} value={f.type} set={v=>sf({...f,type:v})}/><Fld label="Time" type="time" value={f.time} set={v=>sf({...f,time:v})}/><Btn onClick={add} sx={{width:"100%"}}>Log</Btn></Modal></div>;
 }
 // ─── SUPPLEMENTS ───
 function SuppsPage({data,setData}){
-  const [m,sm]=useState(false);const [f,sf]=useState({name:"Creatine",dosage:"",timing:"Morning",date:td()});
-  const add=()=>{if(!f.name)return;const nd={...data,supplements:[...data.supplements,{...f,id:uid()}]};setData(nd);sv(nd);sm(false);};const del=id=>{const nd={...data,supplements:data.supplements.filter(s=>s.id!==id)};setData(nd);sv(nd);};
+  const [m,sm]=useState(false);const [stackM,setStackM]=useState(false);const [stackName,setStackName]=useState("");
+  const [f,sf]=useState({name:"Creatine",dosage:"",timing:"Morning",date:td()});
+  const add=()=>{if(!f.name)return;const nd={...data,supplements:[...data.supplements,{...f,id:uid()}]};setData(nd);sv(nd);sm(false);};
+  const del=id=>{const nd={...data,supplements:data.supplements.filter(s=>s.id!==id)};setData(nd);sv(nd);};
   const tS=data.supplements.filter(s=>s.date===td());const freq={};data.supplements.forEach(s=>{freq[s.name]=(freq[s.name]||0)+1;});
-  return <div><Section title="Supplements" action="+ Log" onAction={()=>sm(true)}>{Object.keys(freq).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>{Object.entries(freq).sort((a,b)=>b[1]-a[1]).map(([n,c])=><span key={n} style={{background:`${G.purple}15`,color:G.purple,borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:600,border:`1px solid ${G.purple}25`}}>{n}({c})</span>)}</div>}</Section>
-    <div style={{fontSize:13,fontWeight:600,color:G.dim,marginBottom:8}}>Today</div>
-    {tS.length===0?<div style={{textAlign:"center",padding:28,color:G.dim}}>None</div>:tS.map(s=><EI key={s.id} primary={s.name} secondary={`${s.timing}${s.dosage?` · ${s.dosage}`:""}`} color={G.purple} onDelete={()=>del(s.id)}/>)}
-    <Modal open={m} onClose={()=>sm(false)} title="Log Supplement"><Fld label="Supp" opts={SUPP_LIST} value={f.name} set={v=>sf({...f,name:v})}/><Fld label="Dose" value={f.dosage} set={v=>sf({...f,dosage:v})} ph="e.g. 5g"/><Fld label="Timing" opts={["Morning","Pre-workout","Post-workout","With meal","Evening","Before bed"]} value={f.timing} set={v=>sf({...f,timing:v})}/><Fld label="Date" type="date" value={f.date} set={v=>sf({...f,date:v})}/><Btn onClick={add} sx={{width:"100%"}}>Log</Btn></Modal></div>;
+  const stacks=data.suppStacks||[];
+
+  // Log entire stack
+  const logStack=(stack)=>{const entries=stack.items.map(item=>({...item,date:td(),id:uid()}));const nd={...data,supplements:[...data.supplements,...entries]};setData(nd);sv(nd);};
+
+  // Save current day's supps as a stack
+  const saveStack=()=>{if(!stackName.trim()||tS.length===0)return;
+    const items=tS.map(s=>({name:s.name,dosage:s.dosage,timing:s.timing}));
+    const stack={id:uid(),name:stackName,items};
+    const nd={...data,suppStacks:[...stacks,stack]};setData(nd);sv(nd);setStackM(false);setStackName("");};
+
+  const deleteStack=(id)=>{const nd={...data,suppStacks:stacks.filter(s=>s.id!==id)};setData(nd);sv(nd);};
+
+  return <div><Section title="Supplements" action="+ Log" onAction={()=>sm(true)}>
+    {/* Daily Stacks */}
+    {stacks.length>0&&<div style={{marginBottom:16}}>
+      <div style={{fontSize:11,fontWeight:700,color:G.dim,letterSpacing:1,marginBottom:8}}>MY STACKS</div>
+      {stacks.map(stack=><Glass key={stack.id} style={{marginBottom:8,borderRadius:16,padding:"12px 14px"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+          <div style={{fontSize:14,fontWeight:700,color:G.purple}}>{stack.name}</div>
+          <div style={{display:"flex",gap:6}}>
+            <Btn onClick={()=>logStack(stack)} v="primary" sx={{fontSize:11,padding:"5px 12px",borderRadius:10}}>Log All</Btn>
+            <button onClick={()=>deleteStack(stack.id)} style={{background:G.glass2,border:"none",width:26,height:26,borderRadius:13,color:G.dim,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+          </div>
+        </div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{stack.items.map((item,i)=>
+          <span key={i} style={{background:`${G.purple}12`,color:G.sub,borderRadius:8,padding:"3px 8px",fontSize:11}}>{item.name}{item.dosage?` ${item.dosage}`:""}</span>
+        )}</div>
+      </Glass>)}
+    </div>}
+
+    {Object.keys(freq).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:14}}>{Object.entries(freq).sort((a,b)=>b[1]-a[1]).map(([n,c])=><span key={n} style={{background:`${G.purple}15`,color:G.purple,borderRadius:20,padding:"5px 12px",fontSize:12,fontWeight:600,border:`1px solid ${G.purple}25`}}>{n}({c})</span>)}</div>}
+  </Section>
+
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+      <span style={{fontSize:13,fontWeight:600,color:G.dim}}>Today</span>
+      {tS.length>0&&<Btn onClick={()=>setStackM(true)} v="ghost" sx={{fontSize:11,padding:"4px 10px",color:G.purple}}>Save as Stack</Btn>}
+    </div>
+    {tS.length===0?<div style={{textAlign:"center",padding:28,color:G.dim}}>None logged</div>:tS.map(s=><EI key={s.id} primary={s.name} secondary={`${s.timing}${s.dosage?` · ${s.dosage}`:""}`} color={G.purple} onDelete={()=>del(s.id)}/>)}
+    <Modal open={m} onClose={()=>sm(false)} title="Log Supplement"><Fld label="Supp" opts={SUPP_LIST} value={f.name} set={v=>sf({...f,name:v})}/><Fld label="Dose" value={f.dosage} set={v=>sf({...f,dosage:v})} ph="e.g. 5g"/><Fld label="Timing" opts={["Morning","Pre-workout","Post-workout","With meal","Evening","Before bed"]} value={f.timing} set={v=>sf({...f,timing:v})}/><Fld label="Date" type="date" value={f.date} set={v=>sf({...f,date:v})}/><Btn onClick={add} sx={{width:"100%"}}>Log</Btn></Modal>
+    <Modal open={stackM} onClose={()=>setStackM(false)} title="Save Stack">
+      <div style={{fontSize:12,color:G.dim,marginBottom:12}}>Save today's {tS.length} supplements as a reusable stack for one-tap logging.</div>
+      <Fld label="Stack Name" value={stackName} set={setStackName} ph="e.g. Morning Stack"/>
+      <div style={{marginBottom:12}}>{tS.map((s,i)=><div key={i} style={{fontSize:12,color:G.sub,padding:"4px 0"}}>{s.name}{s.dosage?` — ${s.dosage}`:""} ({s.timing})</div>)}</div>
+      <Btn onClick={saveStack} sx={{width:"100%"}} disabled={!stackName.trim()}>Save Stack</Btn>
+    </Modal></div>;
 }
 // ─── SLEEP ───
 function SleepPage({data,setData}){
-  const [m,sm]=useState(false);const [f,sf]=useState({hours:"",quality:"Good",bedtime:"",wakeTime:"",notes:"",date:td()});
+  const [m,sm]=useState(false);const [showChart,setShowChart]=useState(false);
+  const [f,sf]=useState({hours:"",quality:"Good",bedtime:"",wakeTime:"",notes:"",date:td()});
   const add=()=>{if(!f.hours)return;const nd={...data,sleep:[...data.sleep,{...f,id:uid()}]};setData(nd);sv(nd);sm(false);};const del=id=>{const nd={...data,sleep:data.sleep.filter(s=>s.id!==id)};setData(nd);sv(nd);};
   const r=data.sleep.slice(-14);const ah=r.length?(r.reduce((s,e)=>s+Number(e.hours),0)/r.length).toFixed(1):"—";
   const imp=data.sleep.filter(s=>s.source==="health_import").slice(-3).reverse();
+  const chartData=data.sleep.slice(-14).map(s=>({date:new Date(s.date+"T12:00").toLocaleDateString("en-US",{weekday:"short"}),hours:Number(s.hours),q:s.quality==="Excellent"?4:s.quality==="Good"?3:s.quality==="Fair"?2:1}));
   return <div><Section title="Sleep" action="+ Log" onAction={()=>sm(true)}/>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:18}}><GradCard colors={G.gPurple}><div style={{fontSize:11,opacity:.8}}>Avg</div><div style={{fontSize:32,fontWeight:800}}>{ah}</div><div style={{fontSize:11,opacity:.7}}>hrs/night</div></GradCard><Glass style={{padding:14,borderRadius:20}}><div style={{fontSize:9,color:G.dim,fontWeight:600}}>Last</div><div style={{fontSize:32,fontWeight:800,color:G.purple}}>{data.sleep.length?data.sleep[data.sleep.length-1].hours:"—"}</div><div style={{fontSize:11,color:G.dim}}>hrs</div></Glass></div>
+    {chartData.length>2&&<div style={{marginBottom:16}}>
+      <Btn onClick={()=>setShowChart(!showChart)} v="ghost" sx={{fontSize:12,padding:"4px 0",color:G.dim}}>
+        {showChart?"Hide":"Show"} Sleep Trend {showChart?"▲":"▼"}
+      </Btn>
+      {showChart&&<Glass style={{marginTop:8,borderRadius:16,padding:"14px 8px 6px"}}>
+        <ResponsiveContainer width="100%" height={120}>
+          <BarChart data={chartData}>
+            <XAxis dataKey="date" tick={{fill:G.dim,fontSize:10}} axisLine={false} tickLine={false}/>
+            <Tooltip contentStyle={{background:"#1a1b26",border:`1px solid ${G.glassBorder2}`,borderRadius:12,fontSize:12}} labelStyle={{color:G.txt}}/>
+            <Bar dataKey="hours" radius={[4,4,0,0]} name="Hours">
+              {chartData.map((entry,i)=><Cell key={i} fill={entry.hours>=7?G.purple:entry.hours>=6?G.orange:G.red}/>)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </Glass>}
+    </div>}
     {imp.length>0&&<Section title="Sleep Stages">{imp.map(s=><Glass key={s.id} style={{marginBottom:8,padding:14,borderRadius:16}}><div style={{fontSize:11,color:G.dim,marginBottom:6}}>{s.date}</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}}>{s.deep!=null&&<div style={{textAlign:"center"}}><div style={{fontSize:16,fontWeight:700,color:G.indigo}}>{s.deep}h</div><div style={{fontSize:9,color:G.dim}}>Deep</div></div>}{s.rem!=null&&<div style={{textAlign:"center"}}><div style={{fontSize:16,fontWeight:700,color:G.teal}}>{s.rem}h</div><div style={{fontSize:9,color:G.dim}}>REM</div></div>}{s.core!=null&&<div style={{textAlign:"center"}}><div style={{fontSize:16,fontWeight:700,color:G.blue}}>{s.core}h</div><div style={{fontSize:9,color:G.dim}}>Core</div></div>}{s.awake!=null&&<div style={{textAlign:"center"}}><div style={{fontSize:16,fontWeight:700,color:G.orange}}>{s.awake}h</div><div style={{fontSize:9,color:G.dim}}>Awake</div></div>}</div></Glass>)}</Section>}
     {data.sleep.slice().reverse().slice(0,10).map(s=><EI key={s.id} primary={`${s.hours}hrs · ${s.quality}`} secondary={`${s.date}${s.bedtime?` · ${s.bedtime}→${s.wakeTime}`:""}`} color={G.purple} onDelete={()=>del(s.id)}/>)}
     <Modal open={m} onClose={()=>sm(false)} title="Log Sleep"><Fld label="Date" type="date" value={f.date} set={v=>sf({...f,date:v})}/><Fld label="Hours" type="number" value={f.hours} set={v=>sf({...f,hours:v})} step=".25"/><Fld label="Quality" opts={["Excellent","Good","Fair","Poor"]} value={f.quality} set={v=>sf({...f,quality:v})}/><div style={{display:"flex",gap:8}}><div style={{flex:1}}><Fld label="Bed" type="time" value={f.bedtime} set={v=>sf({...f,bedtime:v})}/></div><div style={{flex:1}}><Fld label="Wake" type="time" value={f.wakeTime} set={v=>sf({...f,wakeTime:v})}/></div></div><Fld label="Notes" type="textarea" value={f.notes} set={v=>sf({...f,notes:v})}/><Btn onClick={add} sx={{width:"100%"}}>Log</Btn></Modal></div>;
@@ -412,11 +617,28 @@ function LifePage({data,setData}){
 }
 // ─── BODY ───
 function BodyPage({data,setData}){
-  const [m,sm]=useState(false);const [f,sf]=useState({weight:"",bodyFat:"",chest:"",waist:"",arms:"",thighs:"",cardioDistance:"",cardioDuration:"",date:td()});
+  const [m,sm]=useState(false);const [showChart,setShowChart]=useState(false);
+  const [f,sf]=useState({weight:"",bodyFat:"",chest:"",waist:"",arms:"",thighs:"",cardioDistance:"",cardioDuration:"",date:td()});
   const add=()=>{let v2=null;if(f.cardioDistance&&f.cardioDuration)v2=vo2(Number(f.cardioDistance),Number(f.cardioDuration));const nd={...data,bodyMetrics:[...data.bodyMetrics,{...f,vo2max:v2,id:uid()}]};setData(nd);sv(nd);sm(false);};
   const lb=data.bodyMetrics.length?data.bodyMetrics[data.bodyMetrics.length-1]:null;
+  const chartData=data.bodyMetrics.slice(-20).filter(b=>b.weight).map(b=>({date:new Date(b.date+"T12:00").toLocaleDateString("en-US",{month:"short",day:"numeric"}),weight:Number(b.weight),bf:b.bodyFat?Number(b.bodyFat):null}));
   return <div><Section title="Body" action="+ Log" onAction={()=>sm(true)}/>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:18}}><GradCard colors={G.gBlue}><div style={{fontSize:11,opacity:.8}}>Weight</div><div style={{fontSize:32,fontWeight:800}}>{lb?.weight||"—"}</div><div style={{fontSize:11,opacity:.7}}>lbs</div></GradCard><GradCard colors={G.gAmber}><div style={{fontSize:11,opacity:.8}}>VO2</div><div style={{fontSize:32,fontWeight:800}}>{lb?.vo2max||"—"}</div><div style={{fontSize:11,opacity:.7}}>ml/kg</div></GradCard></div>
+    {chartData.length>2&&<div style={{marginBottom:16}}>
+      <Btn onClick={()=>setShowChart(!showChart)} v="ghost" sx={{fontSize:12,padding:"4px 0",color:G.dim}}>
+        {showChart?"Hide":"Show"} Weight Trend {showChart?"▲":"▼"}
+      </Btn>
+      {showChart&&<Glass style={{marginTop:8,borderRadius:16,padding:"14px 8px 6px"}}>
+        <ResponsiveContainer width="100%" height={140}>
+          <AreaChart data={chartData}>
+            <defs><linearGradient id="wGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={G.blue} stopOpacity={0.3}/><stop offset="95%" stopColor={G.blue} stopOpacity={0}/></linearGradient></defs>
+            <XAxis dataKey="date" tick={{fill:G.dim,fontSize:10}} axisLine={false} tickLine={false}/>
+            <Tooltip contentStyle={{background:"#1a1b26",border:`1px solid ${G.glassBorder2}`,borderRadius:12,fontSize:12}} labelStyle={{color:G.txt}}/>
+            <Area type="monotone" dataKey="weight" stroke={G.blue} fill="url(#wGrad)" strokeWidth={2} dot={{fill:G.blue,r:3}} name="Weight (lbs)"/>
+          </AreaChart>
+        </ResponsiveContainer>
+      </Glass>}
+    </div>}
     {lb&&<Glass style={{marginBottom:18,padding:14,borderRadius:16}}><div style={{fontSize:12,fontWeight:600,color:G.dim,marginBottom:8}}>Latest ({lb.date})</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:14}}>{lb.bodyFat&&<div><span style={{color:G.dim}}>BF:</span> <b>{lb.bodyFat}%</b></div>}{lb.chest&&<div><span style={{color:G.dim}}>Chest:</span> <b>{lb.chest}"</b></div>}{lb.waist&&<div><span style={{color:G.dim}}>Waist:</span> <b>{lb.waist}"</b></div>}{lb.arms&&<div><span style={{color:G.dim}}>Arms:</span> <b>{lb.arms}"</b></div>}{lb.thighs&&<div><span style={{color:G.dim}}>Thighs:</span> <b>{lb.thighs}"</b></div>}</div></Glass>}
     <Modal open={m} onClose={()=>sm(false)} title="Log Body"><Fld label="Date" type="date" value={f.date} set={v=>sf({...f,date:v})}/><Fld label="Weight" type="number" value={f.weight} set={v=>sf({...f,weight:v})} step=".1"/><Fld label="BF%" type="number" value={f.bodyFat} set={v=>sf({...f,bodyFat:v})} step=".1"/><div style={{display:"flex",gap:8}}><div style={{flex:1}}><Fld label="Chest" type="number" value={f.chest} set={v=>sf({...f,chest:v})}/></div><div style={{flex:1}}><Fld label="Waist" type="number" value={f.waist} set={v=>sf({...f,waist:v})}/></div></div><div style={{display:"flex",gap:8}}><div style={{flex:1}}><Fld label="Arms" type="number" value={f.arms} set={v=>sf({...f,arms:v})}/></div><div style={{flex:1}}><Fld label="Thighs" type="number" value={f.thighs} set={v=>sf({...f,thighs:v})}/></div></div><div style={{display:"flex",gap:8}}><div style={{flex:1}}><Fld label="Run mi" type="number" value={f.cardioDistance} set={v=>sf({...f,cardioDistance:v})}/></div><div style={{flex:1}}><Fld label="Time min" type="number" value={f.cardioDuration} set={v=>sf({...f,cardioDuration:v})}/></div></div><Btn onClick={add} sx={{width:"100%"}}>Save</Btn></Modal></div>;
 }
@@ -433,7 +655,7 @@ function AIPage({data,setData}){
     const hydAvg=(()=>{let t=0,d=0;for(let i=0;i<14;i++){const dt=new Date();dt.setDate(dt.getDate()-i);const ds=dt.toISOString().split("T")[0];const oz=data.hydration.filter(h=>h.date===ds).reduce((s,h)=>s+(Number(h.oz)||0),0);if(oz>0){t+=oz;d++;}}return d?Math.round(t/d):0;})();
     const hrD=data.heartRate.slice(-7).map(h=>`${h.date}:rest${h.resting} HRV:${h.hrv}`).join("\n");
     const payload={profile:data.profile,recentNutrition:data.nutrition.slice(-28),recentTraining:data.training.slice(-28),recentBody:data.bodyMetrics.slice(-8),recentSleep:data.sleep.slice(-21),recentLifestyle:data.lifestyle.slice(-21),avgHydration:hydAvg+"oz",supps:suppH};
-    const sys=`Elite wellness analyst for Tristan — 25yo, Canada, goals: muscle mass, explosiveness, strength. Dairy allergy. Imperial.\n\nMEMORY:\n${mem||"First."}\nPAIN:\n${painH||"None."}\nPRs:\n${prH||"None."}\nPOST-WO:\n${pwH||"None."}\nSUPPS:${suppH||"None."}\nHYDRATION:${hydAvg}oz\nHR:\n${hrD||"None."}\n\nReference previous analyses. Cross-reference data. Flag pains. Analyze PRs. PRIORITY ACTIONS (top 3). End: [MEMORY]: one-sentence takeaway.`;
+    const sys=`Elite wellness analyst for ${data.profile.name||"user"} — ${data.profile.age||""}yo, goals: ${(data.profile.goals||[]).join(", ")||"general wellness"}. ${data.profile.allergies?`Allergies/restrictions: ${data.profile.allergies}.`:""} ${data.profile.units||"imperial"} units. Targets: ${data.profile.targets?.calories||2800}cal, ${data.profile.targets?.protein||180}g protein, ${data.profile.targets?.water||100}oz water.\n\nMEMORY:\n${mem||"First."}\nPAIN:\n${painH||"None."}\nPRs:\n${prH||"None."}\nPOST-WO:\n${pwH||"None."}\nSUPPS:${suppH||"None."}\nHYDRATION:${hydAvg}oz\nHR:\n${hrD||"None."}\n\nReference previous analyses. Cross-reference data. Flag pains. Analyze PRs. PRIORITY ACTIONS (top 3). End: [MEMORY]: one-sentence takeaway.`;
     const txt=await callClaude({system:sys,messages:[{role:"user",content:`Analyze:\n${JSON.stringify(payload,null,2)}`}]});
     const mM=txt.match(/\[MEMORY\]:?\s*(.+)/);const mN=mM?mM[1].trim():txt.slice(0,120);
     const nd={...data,insights:[...data.insights,{id:uid(),date:td(),text:txt}],aiMemory:[...data.aiMemory,{id:uid(),date:td(),summary:mN}]};setData(nd);sv(nd);
@@ -454,7 +676,7 @@ function AIPage({data,setData}){
 function WorkoutPage({data,setData}){
   const [loading,setL]=useState(false);const [result,setResult]=useState(null);const [err,setErr]=useState(null);
   const [f,sf]=useState({focus:"Full Body",duration:"60",equipment:"Full Gym",intensity:"Moderate",notes:""});
-  const [saved,setSaved]=useState([]);
+  const [saved,setSaved]=useState([]);const [expandedId,setExpandedId]=useState(null);const [logLoading,setLogLoading]=useState(null);const [logSuccess,setLogSuccess]=useState(null);
 
   useEffect(()=>{(async()=>{try{const s=await getData("vitals-workouts");if(s)setSaved(s);}catch{}})();},[]);
 
@@ -467,7 +689,7 @@ function WorkoutPage({data,setData}){
       const recentPW=data.postWorkout.slice(-5).map(p=>`RPE:${p.rpe} Energy:${p.energy} Pump:${p.pump} ${p.mood}${p.soreness?` Sore:${p.soreness}`:""}`).join("\n");
       const sleepAvg=data.sleep.length?(data.sleep.slice(-7).reduce((s,e)=>s+Number(e.hours),0)/Math.min(data.sleep.length,7)).toFixed(1):"unknown";
 
-      const sys=`You are an elite strength & conditioning coach building a workout for Tristan — 25yo male, goals: muscle mass, explosiveness, strength. Dairy allergy (relevant for pre/post workout nutrition tips).
+      const sys=`You are an elite strength & conditioning coach building a workout for ${data.profile.name||"the user"} — ${data.profile.age||""}yo, goals: ${(data.profile.goals||[]).join(", ")||"general fitness"}. ${data.profile.allergies?`Dietary restrictions: ${data.profile.allergies} (relevant for pre/post workout nutrition tips).`:""}
 
 CURRENT STATUS:
 Active pains: ${painH||"None"}
@@ -502,10 +724,42 @@ RULES:
 
   const saveWorkout=async()=>{
     if(!result)return;
-    const entry={id:uid(),date:td(),focus:f.focus,duration:f.duration,workout:result};
+    const entry={id:uid(),date:td(),focus:f.focus,duration:f.duration,intensity:f.intensity,equipment:f.equipment,workout:result};
     const ns=[entry,...saved].slice(0,20);
     setSaved(ns);
     try{await setStorageData("vitals-workouts",ns);}catch{}
+  };
+
+  const deleteSaved=async(id)=>{
+    const ns=saved.filter(w=>w.id!==id);
+    setSaved(ns);
+    if(expandedId===id)setExpandedId(null);
+    try{await setStorageData("vitals-workouts",ns);}catch{}
+  };
+
+  // Parse workout text into training entries using AI
+  const logWorkoutToTraining=async(workoutText,workoutDate)=>{
+    setLogLoading(workoutDate);setLogSuccess(null);
+    try{
+      const txt=await callClaude({system:`Parse this workout plan into individual exercises. Return ONLY a JSON array of exercises. For strength exercises include sets, reps, and weight. For cardio/plyo include duration.
+Format: [{"name":"Exercise Name","type":"Strength"|"Cardio"|"Plyometrics"|"Mobility","sets":"N","reps":"N","weight":"N","duration":"N","notes":"any relevant notes like rest period or tempo"}]
+- Extract EVERY exercise from the workout (skip warm-up stretches and cool-down stretches unless they are specific exercises)
+- For weights, use the number only (no "lbs")
+- If no specific weight is given, leave weight empty
+- Include warm-up sets if they have specific weights
+- Be thorough — capture every working set`,
+        messages:[{role:"user",content:`Parse into exercises:\n${workoutText}`}]});
+      const exercises=JSON.parse(txt.replace(/```json|```/g,"").trim());
+      if(!Array.isArray(exercises)||exercises.length===0)throw new Error("No exercises parsed");
+      const entries=exercises.map(ex=>({
+        id:uid(),type:ex.type||"Strength",name:ex.name,sets:String(ex.sets||""),reps:String(ex.reps||""),
+        weight:String(ex.weight||""),duration:String(ex.duration||""),distance:"",notes:ex.notes||"",date:workoutDate||td()
+      }));
+      const nd={...data,training:[...data.training,...entries]};
+      setData(nd);sv(nd);
+      setLogSuccess(workoutDate);setTimeout(()=>setLogSuccess(null),3000);
+    }catch(e){setErr("Failed to parse workout: "+(e.message||""));}
+    setLogLoading(null);
   };
 
   return <div>
@@ -530,46 +784,205 @@ RULES:
       <Glass style={{borderRadius:20,marginBottom:12}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
           <div><div style={{fontSize:14,fontWeight:700,color:G.txt}}>{f.focus}</div><div style={{fontSize:11,color:G.dim}}>{f.duration}min · {f.intensity} · {f.equipment}</div></div>
-          <Btn onClick={saveWorkout} v="secondary" sx={{fontSize:11,padding:"6px 12px"}}>Save</Btn>
+          <div style={{display:"flex",gap:6}}>
+            <Btn onClick={saveWorkout} v="secondary" sx={{fontSize:11,padding:"6px 12px"}}>💾 Save</Btn>
+          </div>
         </div>
         <div style={{fontSize:13,color:G.sub,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{result}</div>
+        <div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${G.glassBorder}`}}>
+          <Btn onClick={()=>logWorkoutToTraining(result,td())} disabled={logLoading===td()} sx={{width:"100%",padding:12}} v="primary">
+            {logLoading===td()?"⏳ Parsing exercises...":logSuccess===td()?"✓ Logged to Training!":"📋 Log All Exercises to Training"}
+          </Btn>
+        </div>
       </Glass>
     </Section>}
 
-    {saved.length>0&&<Section title="Saved Workouts">
-      {saved.map(w=><Glass key={w.id} style={{marginBottom:8,borderRadius:16}}>
-        <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-          <div style={{fontSize:13,fontWeight:700,color:G.txt}}>{w.focus}</div>
-          <div style={{fontSize:11,color:G.dim}}>{w.date}</div>
-        </div>
-        <div style={{fontSize:12,color:G.sub,lineHeight:1.5,whiteSpace:"pre-wrap",maxHeight:100,overflow:"hidden"}}>{w.workout?.slice(0,300)}...</div>
-      </Glass>)}
+    {saved.length>0&&<Section title={`Saved Workouts (${saved.length})`}>
+      {saved.map(w=>{
+        const isExpanded=expandedId===w.id;
+        return <Glass key={w.id} style={{marginBottom:10,borderRadius:16,cursor:"pointer"}} onClick={()=>setExpandedId(isExpanded?null:w.id)}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:14,fontWeight:700,color:G.txt}}>{w.focus}</span>
+                <span style={{fontSize:10,color:G.dim,background:G.glass2,padding:"2px 8px",borderRadius:8}}>{w.duration}min</span>
+                {w.intensity&&<span style={{fontSize:10,color:G.amber,background:`${G.amber}15`,padding:"2px 8px",borderRadius:8}}>{w.intensity}</span>}
+              </div>
+              <div style={{fontSize:11,color:G.dim,marginTop:4}}>{w.date}{w.equipment?` · ${w.equipment}`:""}</div>
+            </div>
+            <span style={{fontSize:16,color:G.dim,transition:"transform .2s",transform:isExpanded?"rotate(180deg)":"rotate(0deg)"}}>▾</span>
+          </div>
+          {isExpanded&&<div onClick={e=>e.stopPropagation()}>
+            <div style={{marginTop:12,paddingTop:12,borderTop:`1px solid ${G.glassBorder}`,fontSize:13,color:G.sub,lineHeight:1.7,whiteSpace:"pre-wrap",maxHeight:400,overflow:"auto"}}>{w.workout}</div>
+            <div style={{display:"flex",gap:8,marginTop:12,paddingTop:12,borderTop:`1px solid ${G.glassBorder}`}}>
+              <Btn onClick={()=>logWorkoutToTraining(w.workout,w.date)} disabled={logLoading===w.date} sx={{flex:1,padding:10,fontSize:12}} v="primary">
+                {logLoading===w.date?"Parsing...":logSuccess===w.date?"✓ Logged!":"📋 Log to Training"}
+              </Btn>
+              <Btn onClick={()=>deleteSaved(w.id)} v="danger" sx={{padding:"10px 14px",fontSize:12}}>🗑</Btn>
+            </div>
+          </div>}
+        </Glass>;
+      })}
     </Section>}
+  </div>;
+}
+// ─── FEEDBACK ───
+function FeedbackPage({data,setData}){
+  const WEBHOOK_URL=""; // Set your webhook URL here (Slack, Zapier, Make, etc.)
+  const [f,sf]=useState({type:"Bug",message:"",name:"",rating:"5"});
+  const [sent,setSent]=useState(false);const [sending,setSending]=useState(false);const [showHist,setShowHist]=useState(false);
+  const fb=data.feedback||[];
+
+  const send=async()=>{if(!f.message.trim())return;setSending(true);
+    const entry={...f,id:uid(),date:td(),time:new Date().toTimeString().slice(0,5),device:navigator.userAgent.slice(0,80)};
+    // Try webhook if configured
+    if(WEBHOOK_URL){try{await fetch(WEBHOOK_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(entry)});}catch(e){console.warn("Webhook failed, saved locally:",e);}}
+    // Always save locally
+    const nd={...data,feedback:[...fb,entry]};setData(nd);sv(nd);
+    setSent(true);setSending(false);sf({type:"Bug",message:"",name:"",rating:"5"});setTimeout(()=>setSent(false),3000);};
+
+  const exportFeedback=()=>{const b=new Blob([JSON.stringify(fb,null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`vitals-feedback-${td()}.json`;a.click();};
+
+  return <div><Section title="Feedback"/>
+    <Glass glow={`radial-gradient(circle,${G.blue}20,transparent 70%)`} style={{marginBottom:16,borderRadius:20,padding:20}}>
+      <div style={{fontSize:15,fontWeight:700,color:G.txt,marginBottom:4}}>Help Us Improve</div>
+      <div style={{fontSize:12,color:G.dim,lineHeight:1.5,marginBottom:16}}>Found a bug? Have a feature idea? Your feedback shapes what we build next.</div>
+      <Fld label="Your Name (optional)" value={f.name} set={v=>sf({...f,name:v})} ph="Anonymous"/>
+      <Fld label="Type" opts={["Bug","Feature Request","UI/Design","Performance","Other"]} value={f.type} set={v=>sf({...f,type:v})}/>
+      <Slider label="Overall Rating" value={f.rating} set={v=>sf({...f,rating:v})} min={1} max={10} color={Number(f.rating)>=7?G.moss:Number(f.rating)>=4?G.orange:G.red}/>
+      <Fld label="Message" type="textarea" value={f.message} set={v=>sf({...f,message:v})} ph="What happened? What would you like to see?"/>
+      <Btn onClick={send} disabled={sending||!f.message.trim()} sx={{width:"100%",padding:14}}>
+        {sending?"Sending...":sent?"✓ Sent! Thank you":"Send Feedback"}
+      </Btn>
+    </Glass>
+    {fb.length>0&&<div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <Btn onClick={()=>setShowHist(!showHist)} v="ghost" sx={{fontSize:12,padding:"4px 0",color:G.dim}}>{showHist?"Hide":"Show"} History ({fb.length})</Btn>
+        <Btn onClick={exportFeedback} v="ghost" sx={{fontSize:11,padding:"4px 10px",color:G.blue}}>Export All</Btn>
+      </div>
+      {showHist&&fb.slice().reverse().map(item=><Glass key={item.id} style={{marginBottom:6,borderRadius:14,padding:"10px 14px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+          <span style={{fontSize:12,fontWeight:700,color:item.type==="Bug"?G.red:item.type==="Feature Request"?G.moss:G.blue}}>{item.type}</span>
+          <span style={{fontSize:10,color:G.dim}}>{item.date} {item.time}</span>
+        </div>
+        <div style={{fontSize:12,color:G.sub,lineHeight:1.5}}>{item.message}</div>
+        {item.name&&<div style={{fontSize:10,color:G.dim,marginTop:4}}>— {item.name} · Rating: {item.rating}/10</div>}
+      </Glass>)}
+    </div>}
   </div>;
 }
 // ─── SETTINGS ───
 function SettingsPage({data,setData}){
   const [key,setKey]=useState(getApiKey());const [saved,setSaved]=useState(false);const fr=useRef();
+  const [profileOpen,setProfileOpen]=useState(false);
+  const [pf,setPf]=useState({...data.profile});
+
+  // Sync pf when data.profile changes
+  useEffect(()=>{setPf({...data.profile});},[data.profile]);
+
   const saveKey=()=>{setApiKey(key);setSaved(true);setTimeout(()=>setSaved(false),2000);};
+  const saveProfile=()=>{const nd={...data,profile:{...pf,targets:{calories:Number(pf.targets?.calories)||2800,protein:Number(pf.targets?.protein)||180,water:Number(pf.targets?.water)||100}}};setData(nd);sv(nd);setProfileOpen(false);};
   const exp=()=>{const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`vitals-${td()}.json`;a.click();};
-  const imp=async(file)=>{try{const t=await file.text();const d=JSON.parse(t);const nd={...DEF,...d};setData(nd);sv(nd);alert("Done!");}catch(e){alert("Error: "+e.message);}};
+  const imp=async(file)=>{try{const t=await file.text();const d=JSON.parse(t);const nd={...DEF,...d,profile:{...DEF.profile,...d?.profile,targets:{...DEF.profile.targets,...d?.profile?.targets}}};setData(nd);sv(nd);alert("Done!");}catch(e){alert("Error: "+e.message);}};
+  const p=data.profile;
+  const GOAL_OPTS=["Muscle Mass","Strength","Explosiveness","Fat Loss","Endurance","Flexibility","General Health","Athletic Performance"];
+
   return <div><Section title="Settings"/>
-    <Glass style={{marginBottom:16,borderRadius:18}}><div style={{fontSize:15,fontWeight:700,color:G.txt,marginBottom:12}}>API Key</div><div style={{fontSize:12,color:G.dim,marginBottom:10}}>Required for AI. Stored on device only.</div><Fld type="password" value={key} set={setKey} ph="sk-ant-..."/><div style={{display:"flex",gap:8}}><Btn onClick={saveKey} sx={{flex:1}}>Save</Btn>{saved&&<div style={{display:"flex",alignItems:"center",color:G.moss,fontSize:13,fontWeight:600}}>✓</div>}</div></Glass>
-    <Glass style={{marginBottom:16,borderRadius:18}}><div style={{fontSize:15,fontWeight:700,color:G.txt,marginBottom:12}}>Data</div><div style={{display:"flex",gap:8,marginBottom:8}}><Btn onClick={exp} v="secondary" sx={{flex:1}}>Export</Btn><Btn onClick={()=>fr.current?.click()} v="secondary" sx={{flex:1}}>Import</Btn><input ref={fr} type="file" accept=".json" style={{display:"none"}} onChange={e=>{if(e.target.files[0])imp(e.target.files[0]);}}/></div><Btn onClick={()=>{if(confirm("Delete all?")){setData(DEF);sv(DEF);}}} v="danger" sx={{width:"100%"}}>Clear All</Btn></Glass>
-    <Glass style={{borderRadius:18}}><div style={{fontSize:12,color:G.dim,lineHeight:1.6}}>Vitals v5 · IndexedDB · Claude AI<br/>Data on device. AI → Anthropic.</div></Glass></div>;
+    {/* Profile Card */}
+    <Glass glow={`radial-gradient(circle,${G.moss}15,transparent 70%)`} style={{marginBottom:16,borderRadius:20}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <div style={{fontSize:15,fontWeight:700,color:G.txt}}>Profile</div>
+        <Btn onClick={()=>setProfileOpen(true)} v="ghost" sx={{fontSize:12,padding:"4px 12px"}}>Edit</Btn>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:13}}>
+        <div><span style={{color:G.dim}}>Name:</span> <span style={{color:G.txt,fontWeight:600}}>{p.name||"Not set"}</span></div>
+        <div><span style={{color:G.dim}}>Age:</span> <span style={{color:G.txt,fontWeight:600}}>{p.age||"—"}</span></div>
+        <div><span style={{color:G.dim}}>Allergies:</span> <span style={{color:G.txt,fontWeight:600}}>{p.allergies||"None"}</span></div>
+        <div><span style={{color:G.dim}}>Units:</span> <span style={{color:G.txt,fontWeight:600}}>{p.units||"imperial"}</span></div>
+      </div>
+      {p.goals?.length>0&&<div style={{marginTop:10,display:"flex",flexWrap:"wrap",gap:4}}>
+        {p.goals.map((g,i)=><span key={i} style={{background:`${G.moss}15`,color:G.moss,borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:600}}>{g}</span>)}
+      </div>}
+    </Glass>
+
+    {/* Targets Card */}
+    <Glass style={{marginBottom:16,borderRadius:20}}>
+      <div style={{fontSize:15,fontWeight:700,color:G.txt,marginBottom:12}}>Daily Targets</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+        {[{l:"Calories",v:p.targets?.calories||2800,c:G.moss},{l:"Protein",v:(p.targets?.protein||180)+"g",c:G.orange},{l:"Water",v:(p.targets?.water||100)+"oz",c:G.teal}].map((t,i)=>
+          <div key={i} style={{textAlign:"center",background:G.glass,borderRadius:12,padding:"10px 6px"}}>
+            <div style={{fontSize:20,fontWeight:800,color:t.c}}>{t.v}</div>
+            <div style={{fontSize:10,color:G.dim,fontWeight:600}}>{t.l}</div>
+          </div>)}
+      </div>
+    </Glass>
+
+    {/* API Key */}
+    <Glass style={{marginBottom:16,borderRadius:18}}><div style={{fontSize:15,fontWeight:700,color:G.txt,marginBottom:12}}>API Key</div><div style={{fontSize:12,color:G.dim,marginBottom:10}}>Required for AI features. Stored on device only.</div><Fld type="password" value={key} set={setKey} ph="sk-ant-..."/><div style={{display:"flex",gap:8}}><Btn onClick={saveKey} sx={{flex:1}}>Save</Btn>{saved&&<div style={{display:"flex",alignItems:"center",color:G.moss,fontSize:13,fontWeight:600}}>✓</div>}</div></Glass>
+
+    {/* Data */}
+    <Glass style={{marginBottom:16,borderRadius:18}}><div style={{fontSize:15,fontWeight:700,color:G.txt,marginBottom:12}}>Data</div><div style={{display:"flex",gap:8,marginBottom:8}}><Btn onClick={exp} v="secondary" sx={{flex:1}}>Export</Btn><Btn onClick={()=>fr.current?.click()} v="secondary" sx={{flex:1}}>Import</Btn><input ref={fr} type="file" accept=".json" style={{display:"none"}} onChange={e=>{if(e.target.files[0])imp(e.target.files[0]);}}/></div><Btn onClick={()=>{if(confirm("Delete all data? This cannot be undone.")){setData(DEF);sv(DEF);}}} v="danger" sx={{width:"100%"}}>Clear All Data</Btn></Glass>
+    <Glass style={{borderRadius:18}}><div style={{fontSize:12,color:G.dim,lineHeight:1.6}}>Vitals v7 · IndexedDB · Claude AI<br/>Profile · Targets · Stacks · Feedback<br/>Data on device. AI → Anthropic.</div></Glass>
+
+    {/* Profile Editor Modal */}
+    <Modal open={profileOpen} onClose={()=>setProfileOpen(false)} title="Edit Profile">
+      <Fld label="Name" value={pf.name||""} set={v=>setPf({...pf,name:v})} ph="Your name"/>
+      <Fld label="Age" type="number" value={pf.age||""} set={v=>setPf({...pf,age:v})}/>
+      <Fld label="Allergies / Dietary Restrictions" value={pf.allergies||""} set={v=>setPf({...pf,allergies:v})} ph="e.g. Dairy, Gluten, Vegan"/>
+      <Fld label="Units" opts={["imperial","metric"]} value={pf.units||"imperial"} set={v=>setPf({...pf,units:v})}/>
+
+      <div style={{fontSize:13,fontWeight:600,color:G.sub,marginBottom:8,marginTop:8}}>Goals</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
+        {GOAL_OPTS.map(g=>{const active=(pf.goals||[]).includes(g);return <button key={g} onClick={()=>{const goals=active?(pf.goals||[]).filter(x=>x!==g):[...(pf.goals||[]),g];setPf({...pf,goals});}}
+          style={{background:active?`${G.moss}20`:G.glass,border:`1px solid ${active?G.moss+"40":G.glassBorder}`,borderRadius:20,padding:"6px 14px",color:active?G.moss:G.dim,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>{active?"✓ ":""}{g}</button>;})}
+      </div>
+
+      <div style={{fontSize:13,fontWeight:600,color:G.sub,marginBottom:8}}>Daily Targets</div>
+      <div style={{display:"flex",gap:8}}>
+        <div style={{flex:1}}><Fld label="Calories" type="number" value={pf.targets?.calories||""} set={v=>setPf({...pf,targets:{...pf.targets,calories:v}})}/></div>
+        <div style={{flex:1}}><Fld label="Protein (g)" type="number" value={pf.targets?.protein||""} set={v=>setPf({...pf,targets:{...pf.targets,protein:v}})}/></div>
+      </div>
+      <Fld label="Water (oz)" type="number" value={pf.targets?.water||""} set={v=>setPf({...pf,targets:{...pf.targets,water:v}})}/>
+
+      <Btn onClick={saveProfile} sx={{width:"100%",marginTop:8}}>Save Profile</Btn>
+    </Modal>
+  </div>;
+}
+// ─── TOAST ───
+function Toast({message,color,onDone}){
+  useEffect(()=>{const t=setTimeout(onDone,2200);return()=>clearTimeout(t);},[onDone]);
+  return <div style={{position:"fixed",bottom:90,left:"50%",transform:"translateX(-50%)",zIndex:1200,background:color||G.moss,color:"#fff",padding:"10px 24px",borderRadius:20,fontSize:13,fontWeight:700,boxShadow:"0 4px 20px rgba(0,0,0,.3)",animation:"toastIn .3s ease",pointerEvents:"none"}}>{message}</div>;
 }
 // ─── MAIN ───
 export default function App(){
   const [data,setData]=useState(DEF);const [page,setPage]=useState("home");const [ok,setOk]=useState(false);
-  useEffect(()=>{(async()=>{const s=await ld();if(s)setData({...DEF,...s,profile:{...DEF.profile,...s?.profile},prs:s?.prs||[],painLog:s?.painLog||[],postWorkout:s?.postWorkout||[],aiMemory:s?.aiMemory||[],hydration:s?.hydration||[],supplements:s?.supplements||[],healthImports:s?.healthImports||[],heartRate:s?.heartRate||[],ecg:s?.ecg||[],bloodOx:s?.bloodOx||[],respiratory:s?.respiratory||[],stepsData:s?.stepsData||[],watchWorkouts:s?.watchWorkouts||[]});setOk(true);})();},[]);
-  useEffect(()=>{const l=document.createElement("link");l.href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap";l.rel="stylesheet";document.head.appendChild(l);},[]);
+  const [toast,setToast]=useState(null);
+  useEffect(()=>{(async()=>{const s=await ld();if(s)setData({...DEF,...s,
+    profile:{...DEF.profile,...s?.profile,targets:{...DEF.profile.targets,...s?.profile?.targets}},
+    prs:s?.prs||[],painLog:s?.painLog||[],postWorkout:s?.postWorkout||[],aiMemory:s?.aiMemory||[],
+    hydration:s?.hydration||[],supplements:s?.supplements||[],healthImports:s?.healthImports||[],
+    heartRate:s?.heartRate||[],ecg:s?.ecg||[],bloodOx:s?.bloodOx||[],respiratory:s?.respiratory||[],
+    stepsData:s?.stepsData||[],watchWorkouts:s?.watchWorkouts||[],suppStacks:s?.suppStacks||[],feedback:s?.feedback||[]});setOk(true);})();},[]);
+  useEffect(()=>{const l=document.createElement("link");l.href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap";l.rel="stylesheet";document.head.appendChild(l);
+    // Add toast animation
+    const st=document.createElement("style");st.textContent=`@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}`;document.head.appendChild(st);},[]);
+
+  const quickLog=(type)=>{
+    if(type==="water"){
+      const nd={...data,hydration:[...data.hydration,{oz:"16",type:"Water",date:td(),time:new Date().toTimeString().slice(0,5),id:uid()}]};
+      setData(nd);sv(nd);setToast({message:"💧 +16oz logged",color:G.teal});
+      try{navigator.vibrate?.(50);}catch{}
+    }
+  };
+
   if(!ok)return <div style={{background:G.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:G.moss,fontSize:24,fontWeight:800}}>Vitals</div></div>;
-  const pages={home:<HomePage data={data} go={setPage}/>,nutr:<NutrPage data={data} setData={setData}/>,train:<TrainPage data={data} setData={setData}/>,hydra:<HydraPage data={data} setData={setData}/>,supps:<SuppsPage data={data} setData={setData}/>,sleep:<SleepPage data={data} setData={setData}/>,life:<LifePage data={data} setData={setData}/>,health:<HealthPage data={data} setData={setData}/>,body:<BodyPage data={data} setData={setData}/>,ai:<AIPage data={data} setData={setData}/>,workout:<WorkoutPage data={data} setData={setData}/>,settings:<SettingsPage data={data} setData={setData}/>};
+  const pages={home:<HomePage data={data} go={setPage} onQuickLog={quickLog}/>,nutr:<NutrPage data={data} setData={setData}/>,train:<TrainPage data={data} setData={setData}/>,hydra:<HydraPage data={data} setData={setData}/>,supps:<SuppsPage data={data} setData={setData}/>,sleep:<SleepPage data={data} setData={setData}/>,life:<LifePage data={data} setData={setData}/>,health:<HealthPage data={data} setData={setData}/>,body:<BodyPage data={data} setData={setData}/>,ai:<AIPage data={data} setData={setData}/>,workout:<WorkoutPage data={data} setData={setData}/>,feedback:<FeedbackPage data={data} setData={setData}/>,settings:<SettingsPage data={data} setData={setData}/>};
   return <div style={{background:G.bg,minHeight:"100vh",fontFamily:"'Inter',sans-serif",color:G.txt,maxWidth:480,margin:"0 auto",position:"relative",paddingBottom:80}}>
     <div style={{padding:"16px 20px 12px",display:"flex",alignItems:"center",justifyContent:"center",position:"sticky",top:0,zIndex:100,background:`${G.bg}dd`,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)"}}>
       <div style={{fontSize:16,fontWeight:800,color:G.txt,letterSpacing:-.5}}>Vitals</div>
     </div>
     <div style={{padding:"12px 20px 40px"}}>{pages[page]}</div>
     <BottomNav current={page} onNav={setPage}/>
+    {toast&&<Toast message={toast.message} color={toast.color} onDone={()=>setToast(null)}/>}
   </div>;
 }

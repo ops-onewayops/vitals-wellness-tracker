@@ -1,0 +1,17 @@
+{
+  "name": "Vitals Wellness Tracker",
+  "short_name": "Vitals",
+  "description": "AI-powered wellness tracking — nutrition, training, sleep, and more.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#06070b",
+  "theme_color": "#2dd36f",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%2306070b' width='100' height='100' rx='20'/><text y='70' x='22' font-size='60'>💚</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
