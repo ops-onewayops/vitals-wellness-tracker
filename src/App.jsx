@@ -3,7 +3,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Ar
 import { getData, setData as setStorageData } from "./storage.js";
 import { callClaude, getApiKey, setApiKey, hasApiKey } from "./api.js";
 
-const SK="vitals-v5";const td=()=>new Date().toISOString().split("T")[0];const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);const hr=()=>new Date().getHours();
+const SK="vitals-v5";const td=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;};const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);const hr=()=>new Date().getHours();
 async function ld(){try{return await getData(SK);}catch{return null;}}
 async function sv(d){try{await setStorageData(SK,d);}catch(e){console.error(e);}}
 function toB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);});}
@@ -34,7 +34,7 @@ const NAV_PAGES=[
   {id:"life",label:"Lifestyle",icon:"🧘",color:G.pink},
   {id:"health",label:"Health Import",icon:"❤️",color:G.red},
   {id:"body",label:"Body",icon:"📏",color:G.blue},
-  {id:"ai",label:"AI Insights",icon:"🧠",color:G.moss},
+  {id:"ai",label:"AI Coach",icon:"🧠",color:G.moss},
   {id:"workout",label:"Workout Builder",icon:"⚡",color:G.amber},
   {id:"feedback",label:"Feedback",icon:"💬",color:G.blue},
   {id:"settings",label:"Settings",icon:"⚙️",color:G.sub},
@@ -49,6 +49,151 @@ const DEF={
   insights:[],aiMemory:[],suppStacks:[],feedback:[],
 };
 function vo2(d,t){const m=d*1609.34;return Math.round(((m*(12/t)-504.9)/44.73)*10)/10;}
+
+// ─── CROSS-DOMAIN INTELLIGENCE ENGINE ───
+// Computes connected signals from all data domains. Every page reads from this.
+function useVitalsIntel(data){
+  const p=data.profile;const tgt=p.targets||{calories:2800,protein:180,water:100};
+  const today=td();
+
+  // ── Sleep signals ──
+  const recentSleep=data.sleep.slice(-7);
+  const avgSleepHrs=recentSleep.length?(recentSleep.reduce((s,e)=>s+Number(e.hours||0),0)/recentSleep.length):null;
+  const lastSleep=data.sleep.length?data.sleep[data.sleep.length-1]:null;
+  const sleepDebt=avgSleepHrs!=null?Math.max(0,7-avgSleepHrs)*recentSleep.length:0;
+  const sleepTrend=recentSleep.length>=3?(Number(recentSleep[recentSleep.length-1]?.hours||0)-Number(recentSleep[0]?.hours||0)):0;
+  const sleepScore=avgSleepHrs!=null?Math.min(100,Math.round((avgSleepHrs/8)*100)):null;
+
+  // ── Training signals ──
+  const last14=data.training.filter(t=>{const d=new Date(t.date);const w=new Date();w.setDate(w.getDate()-14);return d>=w;});
+  const last7=data.training.filter(t=>{const d=new Date(t.date);const w=new Date();w.setDate(w.getDate()-7);return d>=w;});
+  const workoutsThisWeek=last7.length;
+  // Muscle group freshness (days since last hit)
+  const muscleMap={
+    "Chest":["bench","chest","push up","pushup","fly","pec","dumbbell press","incline press","decline press"],
+    "Back":["row","pull","lat","deadlift","pullup","chin up","back"],
+    "Shoulders":["shoulder","ohp","press","lateral raise","front raise","delt","military"],
+    "Legs":["squat","leg","lunge","calf","hamstring","quad","glute","hip thrust","rdl","bulgarian"],
+    "Arms":["curl","bicep","tricep","extension","skull crush","hammer","arm"],
+    "Core":["ab","plank","crunch","core","sit up","oblique"]
+  };
+  const muscleFreshness={};
+  Object.keys(muscleMap).forEach(group=>{
+    const keywords=muscleMap[group];
+    const hits=data.training.filter(t=>keywords.some(k=>t.name?.toLowerCase().includes(k))).sort((a,b)=>b.date.localeCompare(a.date));
+    const lastHit=hits.length?hits[0].date:null;
+    const days=lastHit?Math.floor((new Date()-new Date(lastHit+"T12:00"))/86400000):999;
+    muscleFreshness[group]={days,lastDate:lastHit,fresh:days>=2,stale:days>=5};
+  });
+  const staleMuscles=Object.entries(muscleFreshness).filter(([_,v])=>v.stale&&v.days<999).map(([k])=>k);
+  const freshMuscles=Object.entries(muscleFreshness).filter(([_,v])=>!v.fresh&&v.days<999).map(([k])=>k);
+
+  // RPE trend
+  const recentPW=data.postWorkout.slice(-7);
+  const avgRPE=recentPW.length?(recentPW.reduce((s,p)=>s+Number(p.rpe||5),0)/recentPW.length):null;
+  const highRPE=avgRPE!=null&&avgRPE>=8;
+
+  // ── Nutrition signals ──
+  const todayNutr=data.nutrition.filter(n=>n.date===today);
+  const todayCal=todayNutr.reduce((s,n)=>s+(Number(n.calories)||0),0);
+  const todayProt=todayNutr.reduce((s,n)=>s+(Number(n.protein)||0),0);
+  const last7Nutr=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-i);const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;const dn=data.nutrition.filter(n=>n.date===ds);return{cal:dn.reduce((s,n)=>s+(Number(n.calories)||0),0),prot:dn.reduce((s,n)=>s+(Number(n.protein)||0),0)};}).filter(d=>d.cal>0);
+  const avgCal=last7Nutr.length?(last7Nutr.reduce((s,d)=>s+d.cal,0)/last7Nutr.length):null;
+  const avgProt=last7Nutr.length?(last7Nutr.reduce((s,d)=>s+d.prot,0)/last7Nutr.length):null;
+  const calDeficit=avgCal!=null?tgt.calories-avgCal:null;
+  const protDeficit=avgProt!=null?tgt.protein-avgProt:null;
+  const nutritionScore=avgCal!=null&&avgProt!=null?Math.min(100,Math.round(((Math.min(avgCal/tgt.calories,1)+Math.min(avgProt/tgt.protein,1))/2)*100)):null;
+
+  // ── Hydration signals ──
+  const todayWater=data.hydration.filter(h=>h.date===today).reduce((s,h)=>s+(Number(h.oz)||0),0);
+  const last7Water=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-i);const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;return data.hydration.filter(h=>h.date===ds).reduce((s,h)=>s+(Number(h.oz)||0),0);}).filter(v=>v>0);
+  const avgWater=last7Water.length?(last7Water.reduce((s,v)=>s+v,0)/last7Water.length):null;
+  const hydrationScore=avgWater!=null?Math.min(100,Math.round((avgWater/tgt.water)*100)):null;
+
+  // ── Pain signals ──
+  const activePains=data.painLog.filter(p=>!p.resolved);
+  const highSevPains=activePains.filter(p=>Number(p.severity)>=7);
+  const painAreas=activePains.map(p=>p.location);
+
+  // ── HRV / Heart signals ──
+  const latestHR=data.heartRate.length?data.heartRate[data.heartRate.length-1]:null;
+  const hrvTrend=data.heartRate.length>=3?(Number(data.heartRate[data.heartRate.length-1]?.hrv||0)-Number(data.heartRate[data.heartRate.length-3]?.hrv||0)):0;
+
+  // ── Lifestyle signals ──
+  const recentLife=data.lifestyle.slice(-7);
+  const avgStress=recentLife.length?(recentLife.reduce((s,l)=>s+Number(l.stress||5),0)/recentLife.length):null;
+  const avgEnergy=recentLife.length?(recentLife.reduce((s,l)=>s+Number(l.energy||5),0)/recentLife.length):null;
+
+  // ── RECOVERY SCORE (1-100) ──
+  // Weighted composite: sleep 30%, RPE inverse 20%, pain 15%, HRV 15%, stress inverse 10%, hydration 10%
+  let recoveryScore=null;
+  const components=[];
+  if(sleepScore!=null){components.push({w:30,v:sleepScore});}
+  if(avgRPE!=null){components.push({w:20,v:Math.max(0,100-((avgRPE-5)*20))});}// RPE 5=100, 10=0
+  if(activePains.length>=0){components.push({w:15,v:Math.max(0,100-(activePains.length*20)-(highSevPains.length*15))});}
+  if(latestHR?.hrv){components.push({w:15,v:Math.min(100,Number(latestHR.hrv)*1.5)});}// HRV 60+=good
+  if(avgStress!=null){components.push({w:10,v:Math.max(0,100-((avgStress-3)*15))});}
+  if(hydrationScore!=null){components.push({w:10,v:hydrationScore});}
+  if(components.length>=2){
+    const totalW=components.reduce((s,c)=>s+c.w,0);
+    recoveryScore=Math.round(components.reduce((s,c)=>s+(c.v*(c.w/totalW)),0));
+    recoveryScore=Math.max(0,Math.min(100,recoveryScore));
+  }
+  const recoveryLabel=recoveryScore==null?"—":recoveryScore>=80?"Great":recoveryScore>=60?"Good":recoveryScore>=40?"Moderate":"Low";
+  const recoveryColor=recoveryScore==null?G.dim:recoveryScore>=80?G.moss:recoveryScore>=60?G.blue:recoveryScore>=40?G.orange:G.red;
+
+  // ── SMART SIGNALS (cross-domain connections) ──
+  const signals=[];
+  // Sleep → Training
+  if(avgSleepHrs!=null&&avgSleepHrs<6.5&&workoutsThisWeek>=4)signals.push({type:"caution",text:"Your sleep has been lighter this week — a rest day might help you bounce back stronger.",icon:"🌙",color:G.purple,go:"sleep"});
+  if(sleepTrend<-1)signals.push({type:"trend",text:"Sleep has been trending down — try keeping a consistent bedtime this week.",icon:"📉",color:G.purple,go:"sleep"});
+  // Nutrition → Training
+  if(protDeficit!=null&&protDeficit>30)signals.push({type:"nudge",text:`Protein has been about ${Math.round(protDeficit)}g below your target lately — a post-workout shake could help close the gap.`,icon:"🍗",color:G.orange,go:"nutr"});
+  if(calDeficit!=null&&calDeficit>500&&workoutsThisWeek>=3)signals.push({type:"nudge",text:"You're training consistently but eating a bit under your calorie target — that might slow your progress.",icon:"🍽️",color:G.moss,go:"nutr"});
+  // RPE → Recovery
+  if(highRPE)signals.push({type:"caution",text:"Your effort levels have been high recently — a deload or lighter session could help you recover.",icon:"🔋",color:G.amber,go:"train"});
+  // Pain → Training
+  if(highSevPains.length>0)signals.push({type:"caution",text:`${highSevPains.map(p=>p.location).join(", ")} — worth being mindful of this during training.`,icon:"🩹",color:G.red,go:"train"});
+  // Muscle staleness
+  if(staleMuscles.length>0&&staleMuscles.length<=3)signals.push({type:"nudge",text:`${staleMuscles.join(" and ")} haven't been trained in a while — might be good to work them in soon.`,icon:"💪",color:G.orange,go:"train"});
+  // Hydration → everything
+  if(avgWater!=null&&avgWater<tgt.water*0.6)signals.push({type:"nudge",text:"Hydration has been on the lower side — even a little more water can help energy and recovery.",icon:"💧",color:G.teal,go:"hydra"});
+  // Stress → Sleep connection
+  if(avgStress!=null&&avgStress>=7&&avgSleepHrs!=null&&avgSleepHrs<7)signals.push({type:"pattern",text:"Higher stress and shorter sleep tend to go together — winding down earlier might help both.",icon:"🧘",color:G.pink,go:"life"});
+  // Training after poor sleep
+  if(lastSleep&&Number(lastSleep.hours)<6&&lastSleep.date===today)signals.push({type:"today",text:"Short night — listen to your body today. Lighter training or active recovery could be a smart call.",icon:"⚡",color:G.amber,go:"workout"});
+  // Supplement reminder
+  const todaySupps=data.supplements.filter(s=>s.date===today);
+  if(todaySupps.length===0&&data.suppStacks?.length>0&&hr()>=9)signals.push({type:"reminder",text:"Haven't logged supplements yet — your saved stack is just one tap away.",icon:"💊",color:G.purple,go:"supps"});
+
+  // ── DAILY BRIEFING (computed, no AI needed) ──
+  const briefing=[];
+  if(recoveryScore!=null)briefing.push(`Recovery: ${recoveryScore}/100 (${recoveryLabel})`);
+  if(todayCal>0)briefing.push(`${todayCal}/${tgt.calories} cal · ${todayProt}/${tgt.protein}g protein so far`);
+  if(todayWater>0)briefing.push(`${todayWater}/${tgt.water}oz water`);
+  if(workoutsThisWeek>0)briefing.push(`${workoutsThisWeek} workout${workoutsThisWeek>1?"s":""} this week`);
+
+  return {
+    // Scores
+    recoveryScore,recoveryLabel,recoveryColor,sleepScore,nutritionScore,hydrationScore,
+    // Averages
+    avgSleepHrs,avgRPE,avgCal,avgProt,avgWater,avgStress,avgEnergy,
+    // Deficits
+    calDeficit,protDeficit,sleepDebt,
+    // Training
+    workoutsThisWeek,muscleFreshness,staleMuscles,freshMuscles,highRPE,
+    // Today
+    todayCal,todayProt,todayWater,
+    // Pain
+    activePains,highSevPains,painAreas,
+    // Heart
+    latestHR,hrvTrend,
+    // Targets
+    tgt,
+    // Cross-domain
+    signals,briefing,
+  };
+}
 
 // ─── GLASS PRIMITIVES ───
 function Glass({children,style:sx={},onClick,glow}){
@@ -165,26 +310,17 @@ function BottomNav({current,onNav}){
 
 // ─── HOME PAGE ───
 function HomePage({data,go,onQuickLog}){
-  const p=data.profile;const tgt=p.targets||{calories:2800,protein:180,water:100};
-  const tn=data.nutrition.filter(n=>n.date===td());const tc=tn.reduce((s,n)=>s+(Number(n.calories)||0),0);const tp=tn.reduce((s,n)=>s+(Number(n.protein)||0),0);
-  const todayH=data.hydration.filter(h=>h.date===td()).reduce((s,h)=>s+(Number(h.oz)||0),0);
-  const rs=data.sleep.slice(-7);const avgSleep=rs.length?(rs.reduce((s,e)=>s+Number(e.hours),0)/rs.length).toFixed(1):"—";
+  const intel=useVitalsIntel(data);
+  const p=data.profile;const tgt=intel.tgt;
+  const tc=intel.todayCal;const tp=intel.todayProt;const todayH=intel.todayWater;
+  const rs=data.sleep.slice(-7);const avgSleep=intel.avgSleepHrs!=null?intel.avgSleepHrs.toFixed(1):"—";
   const lb=data.bodyMetrics.length?data.bodyMetrics[data.bodyMetrics.length-1]:null;
-  const wk=data.training.filter(t=>{const d=new Date(t.date);const w=new Date();w.setDate(w.getDate()-7);return d>=w;}).length;
-  const latestHR=data.heartRate.length?data.heartRate[data.heartRate.length-1]:null;
+  const wk=intel.workoutsThisWeek;
+  const latestHR=intel.latestHR;
   const latestSpO2=data.bloodOx.length?data.bloodOx[data.bloodOx.length-1]:null;
   const latestSteps=data.stepsData.length?data.stepsData[data.stepsData.length-1]:null;
-  const ap=data.painLog.filter(p=>!p.resolved).length;
+  const ap=intel.activePains.length;
   const name=p.name||"";
-  // Staleness checks
-  const lastSleep=data.sleep.length?data.sleep[data.sleep.length-1].date:null;
-  const lastTrain=data.training.length?data.training[data.training.length-1].date:null;
-  const daysSince=(d)=>{if(!d)return 999;return Math.floor((new Date()-new Date(d+"T12:00"))/(86400000));};
-  const nudges=[];
-  if(daysSince(lastSleep)>=2)nudges.push({t:"No sleep logged in "+daysSince(lastSleep)+"d",c:G.purple,go:"sleep"});
-  if(daysSince(lastTrain)>=3)nudges.push({t:"No training in "+daysSince(lastTrain)+"d",c:G.orange,go:"train"});
-  if(tc===0&&hr()>=12)nudges.push({t:"No meals logged today",c:G.moss,go:"nutr"});
-  // Onboarding check
   const needsSetup=!p.name;
 
   return <div style={{position:"relative"}}>
@@ -193,7 +329,6 @@ function HomePage({data,go,onQuickLog}){
     <div style={{position:"absolute",top:500,left:-40,width:250,height:250,background:"radial-gradient(circle,rgba(34,211,238,.1) 0%,transparent 70%)",pointerEvents:"none",zIndex:0}}/>
 
     <div style={{position:"relative",zIndex:1}}>
-      {/* Hero greeting */}
       <div style={{marginBottom:28,paddingTop:8}}>
         <div style={{fontSize:13,color:G.dim,fontWeight:500}}>{new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</div>
         <div style={{fontSize:34,fontWeight:800,color:G.txt,marginTop:4,letterSpacing:-.5,lineHeight:1.1}}>
@@ -201,7 +336,6 @@ function HomePage({data,go,onQuickLog}){
         </div>
       </div>
 
-      {/* Onboarding prompt */}
       {needsSetup&&<Glass glow={`radial-gradient(circle,${G.amber}25,transparent 70%)`} style={{marginBottom:16,borderRadius:20,cursor:"pointer"}} onClick={()=>go("settings")}>
         <div style={{display:"flex",alignItems:"center",gap:12}}>
           <span style={{fontSize:28}}>👋</span>
@@ -210,8 +344,16 @@ function HomePage({data,go,onQuickLog}){
         </div>
       </Glass>}
 
-      {/* Hero rings card with dynamic targets */}
+      {/* Recovery Score + Rings */}
       <Glass glow="radial-gradient(circle at 30% 50%, rgba(45,211,111,.3), rgba(255,159,67,.2) 50%, rgba(34,211,238,.2) 100%)" style={{marginBottom:16,borderRadius:24,overflow:"hidden"}}>
+        {/* Recovery score banner */}
+        {intel.recoveryScore!=null&&<div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,paddingBottom:10,marginBottom:10,borderBottom:`1px solid ${G.glassBorder}`}}>
+          <Ring pct={intel.recoveryScore} size={52} stroke={5} color={intel.recoveryColor} trackColor={`${intel.recoveryColor}25`}>
+            <div style={{fontSize:16,fontWeight:800,color:intel.recoveryColor}}>{intel.recoveryScore}</div>
+          </Ring>
+          <div><div style={{fontSize:13,fontWeight:700,color:intel.recoveryColor}}>Recovery: {intel.recoveryLabel}</div>
+          <div style={{fontSize:10,color:G.dim}}>Sleep · RPE · Pain · Stress · Hydration</div></div>
+        </div>}
         <div style={{display:"flex",justifyContent:"space-around",alignItems:"center",padding:"8px 0"}}>
           {[{p:Math.round((tc/tgt.calories)*100),v:tc,u:`/${tgt.calories}`,l:"Calories",c:G.moss,go:"nutr"},
             {p:Math.round((tp/tgt.protein)*100),v:tp+"g",u:`/${tgt.protein}g`,l:"Protein",c:G.orange,go:"nutr"},
@@ -226,6 +368,14 @@ function HomePage({data,go,onQuickLog}){
         </div>
       </Glass>
 
+      {/* Smart Signals — cross-domain intelligence */}
+      {intel.signals.length>0&&<div style={{marginBottom:14}}>
+        {intel.signals.slice(0,3).map((s,i)=><div key={i} onClick={()=>go(s.go)} style={{background:`${s.color}08`,border:`1px solid ${s.color}18`,borderRadius:14,padding:"10px 14px",marginBottom:6,cursor:"pointer",display:"flex",alignItems:"flex-start",gap:10}}>
+          <span style={{fontSize:18,marginTop:1,flexShrink:0}}>{s.icon}</span>
+          <span style={{fontSize:12,color:G.sub,lineHeight:1.5,fontWeight:500}}>{s.text}</span>
+        </div>)}
+      </div>}
+
       {/* Quick-log actions */}
       <div style={{display:"flex",gap:8,marginBottom:14}}>
         {[{l:"+ Meal",icon:"🍽️",c:G.moss,go:"nutr"},{l:"+ Water",icon:"💧",c:G.teal,action:"water"},{l:"+ Workout",icon:"💪",c:G.orange,go:"train"},{l:"+ Sleep",icon:"🌙",c:G.purple,go:"sleep"}].map((a,i)=>
@@ -235,15 +385,6 @@ function HomePage({data,go,onQuickLog}){
             <span style={{fontSize:10,fontWeight:700,color:a.c}}>{a.l}</span>
           </button>)}
       </div>
-
-      {/* Staleness nudges */}
-      {nudges.length>0&&<div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:14}}>
-        {nudges.map((n,i)=><div key={i} onClick={()=>go(n.go)} style={{background:`${n.c}10`,border:`1px solid ${n.c}20`,borderRadius:12,padding:"8px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
-          <div style={{width:6,height:6,borderRadius:3,background:n.c}}/>
-          <span style={{fontSize:12,color:n.c,fontWeight:600}}>{n.t}</span>
-          <span style={{marginLeft:"auto",fontSize:11,color:G.dim}}>→</span>
-        </div>)}
-      </div>}
 
       {/* Vitals grid */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
@@ -643,37 +784,157 @@ function BodyPage({data,setData}){
     <Modal open={m} onClose={()=>sm(false)} title="Log Body"><Fld label="Date" type="date" value={f.date} set={v=>sf({...f,date:v})}/><Fld label="Weight" type="number" value={f.weight} set={v=>sf({...f,weight:v})} step=".1"/><Fld label="BF%" type="number" value={f.bodyFat} set={v=>sf({...f,bodyFat:v})} step=".1"/><div style={{display:"flex",gap:8}}><div style={{flex:1}}><Fld label="Chest" type="number" value={f.chest} set={v=>sf({...f,chest:v})}/></div><div style={{flex:1}}><Fld label="Waist" type="number" value={f.waist} set={v=>sf({...f,waist:v})}/></div></div><div style={{display:"flex",gap:8}}><div style={{flex:1}}><Fld label="Arms" type="number" value={f.arms} set={v=>sf({...f,arms:v})}/></div><div style={{flex:1}}><Fld label="Thighs" type="number" value={f.thighs} set={v=>sf({...f,thighs:v})}/></div></div><div style={{display:"flex",gap:8}}><div style={{flex:1}}><Fld label="Run mi" type="number" value={f.cardioDistance} set={v=>sf({...f,cardioDistance:v})}/></div><div style={{flex:1}}><Fld label="Time min" type="number" value={f.cardioDuration} set={v=>sf({...f,cardioDuration:v})}/></div></div><Btn onClick={add} sx={{width:"100%"}}>Save</Btn></Modal></div>;
 }
 
-// ─── AI INSIGHTS ───
+// ─── AI INSIGHTS + COACH CHAT ───
 function AIPage({data,setData}){
-  const [loading,setL]=useState(false);const [err,setE]=useState(null);const [tab,setTab]=useState("gen");
-  const gen=async()=>{setL(true);setE(null);try{
+  const intel=useVitalsIntel(data);
+  const [loading,setL]=useState(false);const [err,setE]=useState(null);const [tab,setTab]=useState("chat");
+  const [chatInput,setChatInput]=useState("");const [chatHistory,setChatHistory]=useState([]);const [chatLoading,setChatLoading]=useState(false);
+  const chatEndRef=useRef(null);
+
+  // Shared context builder for all AI calls
+  const buildContext=()=>{
     const mem=data.aiMemory.slice(-12).map(m=>`[${m.date}] ${m.summary}`).join("\n");
-    const painH=data.painLog.map(p=>`${p.date}:${p.location}(${p.type},sev:${p.severity})${p.resolved?"[R]":"[A]"}`).join("\n");
+    const painH=data.painLog.map(p=>`${p.date}:${p.location}(${p.type},sev:${p.severity})${p.resolved?"[resolved]":"[active]"}`).join("\n");
     const prH=data.prs.slice(-25).map(p=>`${p.date}:${p.exercise} ${p.repMax}@${p.weight}lbs`).join("\n");
-    const pwH=data.postWorkout.slice(-14).map(p=>`${p.date}:RPE${p.rpe} E${p.energy} ${p.mood}`).join("\n");
+    const pwH=data.postWorkout.slice(-14).map(p=>`${p.date}:RPE${p.rpe} Energy${p.energy} ${p.mood}`).join("\n");
     const suppH=[...new Set(data.supplements.map(s=>s.name))].join(", ");
-    const hydAvg=(()=>{let t=0,d=0;for(let i=0;i<14;i++){const dt=new Date();dt.setDate(dt.getDate()-i);const ds=dt.toISOString().split("T")[0];const oz=data.hydration.filter(h=>h.date===ds).reduce((s,h)=>s+(Number(h.oz)||0),0);if(oz>0){t+=oz;d++;}}return d?Math.round(t/d):0;})();
+    const hydAvg=intel.avgWater!=null?Math.round(intel.avgWater):0;
     const hrD=data.heartRate.slice(-7).map(h=>`${h.date}:rest${h.resting} HRV:${h.hrv}`).join("\n");
-    const payload={profile:data.profile,recentNutrition:data.nutrition.slice(-28),recentTraining:data.training.slice(-28),recentBody:data.bodyMetrics.slice(-8),recentSleep:data.sleep.slice(-21),recentLifestyle:data.lifestyle.slice(-21),avgHydration:hydAvg+"oz",supps:suppH};
-    const sys=`Elite wellness analyst for ${data.profile.name||"user"} — ${data.profile.age||""}yo, goals: ${(data.profile.goals||[]).join(", ")||"general wellness"}. ${data.profile.allergies?`Allergies/restrictions: ${data.profile.allergies}.`:""} ${data.profile.units||"imperial"} units. Targets: ${data.profile.targets?.calories||2800}cal, ${data.profile.targets?.protein||180}g protein, ${data.profile.targets?.water||100}oz water.\n\nMEMORY:\n${mem||"First."}\nPAIN:\n${painH||"None."}\nPRs:\n${prH||"None."}\nPOST-WO:\n${pwH||"None."}\nSUPPS:${suppH||"None."}\nHYDRATION:${hydAvg}oz\nHR:\n${hrD||"None."}\n\nReference previous analyses. Cross-reference data. Flag pains. Analyze PRs. PRIORITY ACTIONS (top 3). End: [MEMORY]: one-sentence takeaway.`;
-    const txt=await callClaude({system:sys,messages:[{role:"user",content:`Analyze:\n${JSON.stringify(payload,null,2)}`}]});
+    return {mem,painH,prH,pwH,suppH,hydAvg,hrD};
+  };
+
+  const coachPersonality=`You are a knowledgeable, supportive wellness coach — think of yourself as a good training partner who's also well-read on nutrition and recovery. Your tone is:
+- Warm and encouraging, never clinical or alarming
+- Conversational — talk like a friend, not a textbook
+- Specific to the user's actual data — reference their real numbers, not generic advice
+- Honest but constructive — if something needs attention, frame it as an opportunity, not a problem
+- Concise — get to the point, no filler paragraphs
+
+NEVER use words like: CRITICAL, DEFICIENCY, ALARMING, WARNING, DANGER, SEVERE, URGENT, CONCERNING (in caps or otherwise alarmist framing).
+Instead of "CRITICAL PROTEIN DEFICIENCY" say something like "Your protein has been running a bit low — around ${Math.round(intel.avgProt||0)}g vs your ${intel.tgt.protein}g target. An extra shake or some chicken would close that gap."
+Instead of "WARNING: Overtraining detected" say "You've been going hard — your body might appreciate a lighter day."
+
+When referencing data, be specific: use actual numbers, dates, and exercise names from their log. Don't generalize.`;
+
+  // Coach personality system prompt
+  const buildCoachSys=()=>{
+    const ctx=buildContext();
+    return `${coachPersonality}
+
+ABOUT THIS PERSON:
+${data.profile.name||"User"}, ${data.profile.age||""}yo. Goals: ${(data.profile.goals||[]).join(", ")||"general wellness"}. ${data.profile.allergies?`Allergies/restrictions: ${data.profile.allergies}.`:""} ${data.profile.units||"imperial"} units.
+Targets: ${intel.tgt.calories}cal, ${intel.tgt.protein}g protein, ${intel.tgt.water}oz water.
+Recovery score: ${intel.recoveryScore!=null?intel.recoveryScore+"/100 ("+intel.recoveryLabel+")":"not enough data yet"}.
+
+CURRENT DATA SNAPSHOT:
+Today: ${intel.todayCal}cal, ${intel.todayProt}g protein, ${intel.todayWater}oz water.
+7-day averages: ${Math.round(intel.avgCal||0)}cal, ${Math.round(intel.avgProt||0)}g protein, ${Math.round(intel.avgWater||0)}oz water.
+Sleep: avg ${intel.avgSleepHrs!=null?intel.avgSleepHrs.toFixed(1):"?"}hrs. Workouts this week: ${intel.workoutsThisWeek}.
+${intel.avgRPE!=null?"Avg RPE: "+intel.avgRPE.toFixed(1)+"/10. ":""}${intel.avgStress!=null?"Avg stress: "+intel.avgStress.toFixed(1)+"/10. ":""}
+Stale muscle groups (5+ days): ${intel.staleMuscles.join(", ")||"none"}.
+Active pains: ${intel.activePains.map(p=>p.location+" ("+p.type+", "+p.severity+"/10)").join(", ")||"none"}.
+
+MEMORY (past analyses):
+${ctx.mem||"First session."}
+PAIN HISTORY: ${ctx.painH||"None."}
+PRs: ${ctx.prH||"None."}
+POST-WORKOUT: ${ctx.pwH||"None."}
+SUPPLEMENTS: ${ctx.suppH||"None."}
+HYDRATION avg: ${ctx.hydAvg}oz/day
+HEART RATE: ${ctx.hrD||"None."}`;
+  };
+
+  // ── Full Analysis ──
+  const gen=async()=>{setL(true);setE(null);try{
+    const sys=buildCoachSys()+`\n\nGive a comprehensive but readable analysis. Structure it naturally — don't use headers like "NUTRITION ANALYSIS" or clinical formatting. Instead, flow through what's going well, what could use attention, and 2-3 specific action items. Keep it to about 300 words. Reference their actual numbers.
+
+Cross-reference domains: connect sleep to training performance, nutrition to recovery, hydration to energy, pain to exercise selection. Spot patterns.
+
+End with: [MEMORY]: one-sentence key takeaway for next time.`;
+    const payload={recentNutrition:data.nutrition.slice(-28),recentTraining:data.training.slice(-28),recentBody:data.bodyMetrics.slice(-8),recentSleep:data.sleep.slice(-21),recentLifestyle:data.lifestyle.slice(-21)};
+    const txt=await callClaude({system:sys,messages:[{role:"user",content:`Here's my recent data — give me your take:\n${JSON.stringify(payload,null,2)}`}]});
     const mM=txt.match(/\[MEMORY\]:?\s*(.+)/);const mN=mM?mM[1].trim():txt.slice(0,120);
     const nd={...data,insights:[...data.insights,{id:uid(),date:td(),text:txt}],aiMemory:[...data.aiMemory,{id:uid(),date:td(),summary:mN}]};setData(nd);sv(nd);
   }catch(e){setE(e.message||"Failed.");}setL(false);};
-  return <div><Section title="AI Insights"/>
+
+  // ── Coach Chat ──
+  const sendChat=async()=>{if(!chatInput.trim()||chatLoading)return;
+    const userMsg={role:"user",content:chatInput};
+    const newHistory=[...chatHistory,userMsg];
+    setChatHistory(newHistory);setChatInput("");setChatLoading(true);setE(null);
+    try{
+      const sys=buildCoachSys()+`\n\nThis is a conversation. Answer the user's specific question using their data. Be concise (1-3 short paragraphs max). If they ask about training, reference their actual PRs, pain points, and recovery. If about nutrition, use their real intake numbers. Always be specific, never generic.`;
+      const messages=newHistory.slice(-10); // Keep last 10 messages for context
+      const txt=await callClaude({system:sys,messages,maxTokens:800});
+      setChatHistory([...newHistory,{role:"assistant",content:txt}]);
+    }catch(e){setE(e.message||"Failed.");setChatHistory(newHistory);}
+    setChatLoading(false);
+  };
+
+  useEffect(()=>{chatEndRef.current?.scrollIntoView({behavior:"smooth"});},[chatHistory]);
+
+  return <div><Section title="AI Coach"/>
+    {/* Recovery + stats bar */}
     <div style={{display:"flex",gap:8,marginBottom:14}}>
+      {intel.recoveryScore!=null&&<Glass style={{flex:1,padding:"10px 14px",borderRadius:14,textAlign:"center"}}>
+        <div style={{fontSize:9,color:G.dim,fontWeight:700}}>Recovery</div>
+        <div style={{fontSize:22,fontWeight:800,color:intel.recoveryColor}}>{intel.recoveryScore}</div>
+      </Glass>}
       <Glass style={{flex:1,padding:"10px 14px",borderRadius:14,textAlign:"center"}}><div style={{fontSize:9,color:G.dim,fontWeight:700}}>Analyses</div><div style={{fontSize:22,fontWeight:800,color:G.moss}}>{data.insights.length}</div></Glass>
-      <Glass style={{flex:1,padding:"10px 14px",borderRadius:14,textAlign:"center"}}><div style={{fontSize:9,color:G.dim,fontWeight:700}}>AI Memory</div><div style={{fontSize:22,fontWeight:800,color:G.purple}}>{data.aiMemory.length}</div></Glass>
+      <Glass style={{flex:1,padding:"10px 14px",borderRadius:14,textAlign:"center"}}><div style={{fontSize:9,color:G.dim,fontWeight:700}}>Memory</div><div style={{fontSize:22,fontWeight:800,color:G.purple}}>{data.aiMemory.length}</div></Glass>
     </div>
-    <div style={{display:"flex",gap:8,marginBottom:18}}>{[["gen","Analyze"],["hist","History"],["mem","Memory"]].map(([k,l])=><Btn key={k} onClick={()=>setTab(k)} v={tab===k?"primary":"secondary"} sx={{flex:1,padding:10}}>{l}</Btn>)}</div>
-    {tab==="gen"&&<div><div style={{textAlign:"center",marginBottom:18}}><Btn onClick={gen} disabled={loading} sx={{padding:"14px 32px",fontSize:15,borderRadius:16}}>{loading?"Analyzing...":"⬡ Generate"}</Btn>{err&&<div style={{color:G.red,fontSize:12,marginTop:6}}>{err}</div>}</div>
-      {!hasApiKey()&&<Glass style={{marginBottom:14,padding:14,borderRadius:16}}><div style={{fontSize:13,color:G.orange,fontWeight:600}}>No API key — go to Settings</div></Glass>}
+
+    {/* Tabs */}
+    <div style={{display:"flex",gap:8,marginBottom:18}}>{[["chat","💬 Coach"],["gen","📊 Analyze"],["hist","History"],["mem","Memory"]].map(([k,l])=><Btn key={k} onClick={()=>setTab(k)} v={tab===k?"primary":"secondary"} sx={{flex:1,padding:10,fontSize:12}}>{l}</Btn>)}</div>
+
+    {!hasApiKey()&&<Glass style={{marginBottom:14,padding:14,borderRadius:16}}><div style={{fontSize:13,color:G.orange,fontWeight:600}}>Add your API key in Settings to use AI features</div></Glass>}
+
+    {/* Coach Chat */}
+    {tab==="chat"&&<div>
+      <Glass style={{borderRadius:20,padding:0,overflow:"hidden",marginBottom:12}}>
+        {/* Chat messages */}
+        <div style={{maxHeight:360,overflowY:"auto",padding:"16px 14px 8px"}}>
+          {chatHistory.length===0&&<div style={{textAlign:"center",padding:"24px 12px",color:G.dim}}>
+            <div style={{fontSize:28,marginBottom:10}}>💬</div>
+            <div style={{fontSize:14,fontWeight:600,color:G.sub,marginBottom:6}}>Ask your coach anything</div>
+            <div style={{fontSize:12,lineHeight:1.5}}>Try: "Should I train today?" or "What should I eat for dinner?" or "Why am I so tired lately?"</div>
+          </div>}
+          {chatHistory.map((msg,i)=><div key={i} style={{display:"flex",justifyContent:msg.role==="user"?"flex-end":"flex-start",marginBottom:10}}>
+            <div style={{maxWidth:"85%",padding:"10px 14px",borderRadius:msg.role==="user"?"16px 16px 4px 16px":"16px 16px 16px 4px",
+              background:msg.role==="user"?`linear-gradient(135deg,${G.gMoss[0]},${G.gMoss[1]})`:G.glass2,
+              color:msg.role==="user"?"#fff":G.sub,fontSize:13,lineHeight:1.6,whiteSpace:"pre-wrap"}}>
+              {msg.content}
+            </div>
+          </div>)}
+          {chatLoading&&<div style={{display:"flex",justifyContent:"flex-start",marginBottom:10}}>
+            <div style={{padding:"10px 14px",borderRadius:"16px 16px 16px 4px",background:G.glass2,color:G.dim,fontSize:13}}>Thinking...</div>
+          </div>}
+          <div ref={chatEndRef}/>
+        </div>
+        {/* Input */}
+        <div style={{display:"flex",gap:8,padding:"8px 12px 12px",borderTop:`1px solid ${G.glassBorder}`}}>
+          <input value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();}}}
+            placeholder="Ask your coach..." style={{flex:1,background:G.glass,border:`1px solid ${G.glassBorder}`,borderRadius:20,padding:"10px 16px",color:G.txt,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+          <button onClick={sendChat} disabled={chatLoading||!chatInput.trim()} style={{background:`linear-gradient(135deg,${G.gMoss[0]},${G.gMoss[1]})`,border:"none",borderRadius:20,width:44,height:44,color:"#fff",fontSize:18,cursor:"pointer",opacity:chatLoading||!chatInput.trim()?.5:1,display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
+        </div>
+      </Glass>
+      {/* Quick questions */}
+      <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+        {["Should I train today?","What should I eat for dinner?","How's my recovery looking?","Any patterns you notice?"].map((q,i)=>
+          <button key={i} onClick={()=>{setChatInput(q);}} style={{background:G.glass,border:`1px solid ${G.glassBorder}`,borderRadius:20,padding:"6px 12px",color:G.sub,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>{q}</button>)}
+      </div>
+    </div>}
+
+    {/* Full Analysis */}
+    {tab==="gen"&&<div><div style={{textAlign:"center",marginBottom:18}}><Btn onClick={gen} disabled={loading} sx={{padding:"14px 32px",fontSize:15,borderRadius:16}}>{loading?"Analyzing...":"⬡ Full Analysis"}</Btn>{err&&<div style={{color:G.red,fontSize:12,marginTop:6}}>{err}</div>}</div>
       {data.insights.length>0&&<Glass style={{borderRadius:16}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{fontSize:11,fontWeight:700,color:G.moss}}>⬡ Latest</span><span style={{fontSize:11,color:G.dim}}>{data.insights[data.insights.length-1].date}</span></div><div style={{fontSize:13,color:G.sub,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{data.insights[data.insights.length-1].text}</div></Glass>}</div>}
     {tab==="hist"&&data.insights.slice().reverse().map(i=><Glass key={i.id} style={{marginBottom:10,borderRadius:16}}><div style={{fontSize:11,color:G.dim,marginBottom:6}}>{i.date}</div><div style={{fontSize:13,color:G.sub,lineHeight:1.5,whiteSpace:"pre-wrap"}}>{i.text}</div></Glass>)}
-    {tab==="mem"&&<div>{data.aiMemory.slice().reverse().map(m=><Glass key={m.id} style={{marginBottom:6,borderRadius:14}}><div style={{fontSize:11,color:G.dim}}>{m.date}</div><div style={{fontSize:13,color:G.sub,marginTop:2}}>{m.summary}</div></Glass>)}</div>}</div>;
+    {tab==="mem"&&<div>{data.aiMemory.slice().reverse().map(m=><Glass key={m.id} style={{marginBottom:6,borderRadius:14}}><div style={{fontSize:11,color:G.dim}}>{m.date}</div><div style={{fontSize:13,color:G.sub,marginTop:2}}>{m.summary}</div></Glass>)}</div>}
+  </div>;
 }
 // ─── WORKOUT BUILDER ───
 function WorkoutPage({data,setData}){
+  const intel=useVitalsIntel(data);
   const [loading,setL]=useState(false);const [result,setResult]=useState(null);const [err,setErr]=useState(null);
   const [f,sf]=useState({focus:"Full Body",duration:"60",equipment:"Full Gym",intensity:"Moderate",notes:""});
   const [saved,setSaved]=useState([]);const [expandedId,setExpandedId]=useState(null);const [logLoading,setLogLoading]=useState(null);const [logSuccess,setLogSuccess]=useState(null);
@@ -689,7 +950,18 @@ function WorkoutPage({data,setData}){
       const recentPW=data.postWorkout.slice(-5).map(p=>`RPE:${p.rpe} Energy:${p.energy} Pump:${p.pump} ${p.mood}${p.soreness?` Sore:${p.soreness}`:""}`).join("\n");
       const sleepAvg=data.sleep.length?(data.sleep.slice(-7).reduce((s,e)=>s+Number(e.hours),0)/Math.min(data.sleep.length,7)).toFixed(1):"unknown";
 
-      const sys=`You are an elite strength & conditioning coach building a workout for ${data.profile.name||"the user"} — ${data.profile.age||""}yo, goals: ${(data.profile.goals||[]).join(", ")||"general fitness"}. ${data.profile.allergies?`Dietary restrictions: ${data.profile.allergies} (relevant for pre/post workout nutrition tips).`:""}
+      const sys=`You are a knowledgeable, supportive strength & conditioning coach building a workout for ${data.profile.name||"the user"} — ${data.profile.age||""}yo, goals: ${(data.profile.goals||[]).join(", ")||"general fitness"}. ${data.profile.allergies?`Dietary restrictions: ${data.profile.allergies} (relevant for pre/post workout nutrition tips).`:""}
+
+Be encouraging and specific — use their actual numbers and names. Never use alarming language.
+
+RECOVERY STATUS:
+Recovery score: ${intel.recoveryScore!=null?intel.recoveryScore+"/100 ("+intel.recoveryLabel+")":"unknown"}
+${intel.recoveryScore!=null&&intel.recoveryScore<50?"Their recovery is on the lower side — suggest scaling back intensity or volume.":""}
+
+MUSCLE FRESHNESS (days since last trained):
+${Object.entries(intel.muscleFreshness).map(([g,v])=>`${g}: ${v.days<999?v.days+"d ago":"not tracked"}`).join(", ")}
+Stale groups (good to hit): ${intel.staleMuscles.join(", ")||"none"}
+Recently trained (might need rest): ${intel.freshMuscles.join(", ")||"none"}
 
 CURRENT STATUS:
 Active pains: ${painH||"None"}
@@ -708,13 +980,15 @@ ${f.notes?`Notes: ${f.notes}`:""}
 
 RULES:
 - AVOID exercises that would aggravate active pain points
-- Program based on his actual PRs and recent training volume
-- If RPE has been consistently high, suggest a deload
-- Include specific weights based on his PR data (e.g. "Squat 4x6 @ 225lbs" not "Squat 4x6 @ moderate weight")
+- PRIORITIZE stale muscle groups when the focus allows
+- Program based on their actual PRs and recent training volume
+- If RPE has been consistently high or recovery is low, suggest lighter work
+- Include specific weights based on PR data (e.g. "Squat 4x6 @ 225lbs" not "Squat 4x6 @ moderate weight")
 - Include warm-up, main work, and cool-down
-- Add explosive/plyometric work where appropriate given his goals
-- Give pre and post workout nutrition suggestions (dairy-free)
-- Format clearly with exercise name, sets, reps, weight/intensity, and rest periods`;
+- Add explosive/plyometric work where appropriate given their goals
+- Give pre and post workout nutrition suggestions${data.profile.allergies?` (avoid: ${data.profile.allergies})`:""} 
+- Format clearly with exercise name, sets, reps, weight/intensity, and rest periods
+- Be encouraging and specific — use a coaching tone, not a clinical one`;
 
       const txt=await callClaude({system:sys,messages:[{role:"user",content:"Generate my workout."}],maxTokens:1500});
       setResult(txt);
