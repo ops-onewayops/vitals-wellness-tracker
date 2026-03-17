@@ -34,7 +34,6 @@ const NAV_PAGES=[
   {id:"life",label:"Lifestyle",icon:"🧘",color:G.pink},
   {id:"health",label:"Health Import",icon:"❤️",color:G.red},
   {id:"body",label:"Body",icon:"📏",color:G.blue},
-  {id:"ai",label:"AI Coach",icon:"🧠",color:G.moss},
   {id:"workout",label:"Workout Builder",icon:"⚡",color:G.amber},
   {id:"feedback",label:"Feedback",icon:"💬",color:G.blue},
   {id:"settings",label:"Settings",icon:"⚙️",color:G.sub},
@@ -273,9 +272,9 @@ function BottomNav({current,onNav}){
   const [menuOpen,setMenuOpen]=useState(false);
   const mainTabs=[
     {id:"home",icon:"🏠",label:"Home"},
-    {id:"_track",icon:"📋",label:"Menu"},
-    {id:"health",icon:"❤️",label:"Import"},
-    {id:"ai",icon:"🧠",label:"AI"},
+    {id:"_track",icon:"➕",label:"Log"},
+    {id:"ai",icon:"🧠",label:"Coach"},
+    {id:"settings",icon:"⚙️",label:"More"},
   ];
   return <>
     {/* Full screen menu overlay */}
@@ -841,7 +840,24 @@ PRs: ${ctx.prH||"None."}
 POST-WORKOUT: ${ctx.pwH||"None."}
 SUPPLEMENTS: ${ctx.suppH||"None."}
 HYDRATION avg: ${ctx.hydAvg}oz/day
-HEART RATE: ${ctx.hrD||"None."}`;
+HEART RATE: ${ctx.hrD||"None."}
+
+LOGGING CAPABILITY:
+You can log items for the user. When they mention food, exercises, water, supplements, sleep, weight, or mood, offer to log it. When they confirm (or if they clearly want it logged like "log 8 hours sleep"), include a JSON block the app will parse:
+
+\`\`\`vitals-log
+{"entries":[
+  {"type":"meal","food":"description","calories":N,"protein":N,"carbs":N,"fat":N,"meal":"Lunch"},
+  {"type":"training","name":"Exercise","sets":"N","reps":"N","weight":"N","exerciseType":"Strength"},
+  {"type":"water","oz":"N"},
+  {"type":"supplement","name":"Name","dosage":"5g","timing":"Morning"},
+  {"type":"sleep","hours":"N","quality":"Good","bedtime":"23:00","wakeTime":"06:30"},
+  {"type":"body","weight":"N","bodyFat":"N"},
+  {"type":"lifestyle","energy":"N","stress":"N","mood":"Good"},
+  {"type":"pain","location":"Lower Back","painType":"Dull/Aching","severity":"N"}
+]}
+\`\`\`
+Only include relevant types. For meals, estimate accurate macros using USDA data. Always confirm before logging unless the user explicitly asks to log.`;
   };
 
   // ── Full Analysis ──
@@ -857,16 +873,39 @@ End with: [MEMORY]: one-sentence key takeaway for next time.`;
     const nd={...data,insights:[...data.insights,{id:uid(),date:td(),text:txt}],aiMemory:[...data.aiMemory,{id:uid(),date:td(),summary:mN}]};setData(nd);sv(nd);
   }catch(e){setE(e.message||"Failed.");}setL(false);};
 
+  // ── Log parser — extracts and executes vitals-log blocks from AI responses ──
+  const executeLogBlock=(text)=>{
+    const match=text.match(/```vitals-log\s*([\s\S]*?)\s*```/);
+    if(!match)return{cleaned:text,count:0};
+    let logData;try{logData=JSON.parse(match[1]);}catch{return{cleaned:text,count:0};}
+    if(!logData?.entries)return{cleaned:text,count:0};
+    let nd={...data};let count=0;const date=td();
+    logData.entries.forEach(entry=>{const id=uid();
+      if(entry.type==="meal"){nd.nutrition=[...nd.nutrition,{meal:entry.meal||"Lunch",food:entry.food||"",calories:String(entry.calories||0),protein:String(entry.protein||0),carbs:String(entry.carbs||0),fat:String(entry.fat||0),date,id}];count++;}
+      if(entry.type==="training"){nd.training=[...nd.training,{type:entry.exerciseType||"Strength",name:entry.name||"",sets:String(entry.sets||""),reps:String(entry.reps||""),weight:String(entry.weight||""),duration:String(entry.duration||""),notes:"",date,id}];count++;}
+      if(entry.type==="water"){nd.hydration=[...nd.hydration,{oz:String(entry.oz||16),type:"Water",date,time:new Date().toTimeString().slice(0,5),id}];count++;}
+      if(entry.type==="supplement"){nd.supplements=[...nd.supplements,{name:entry.name||"",dosage:entry.dosage||"",timing:entry.timing||"Morning",date,id}];count++;}
+      if(entry.type==="sleep"){nd.sleep=[...nd.sleep,{hours:String(entry.hours||""),quality:entry.quality||"Good",bedtime:entry.bedtime||"",wakeTime:entry.wakeTime||"",date,id}];count++;}
+      if(entry.type==="body"){nd.bodyMetrics=[...nd.bodyMetrics,{weight:String(entry.weight||""),bodyFat:String(entry.bodyFat||""),date,id}];count++;}
+      if(entry.type==="lifestyle"){nd.lifestyle=[...nd.lifestyle,{energy:String(entry.energy||5),stress:String(entry.stress||5),mood:entry.mood||"Good",date,id}];count++;}
+      if(entry.type==="pain"){nd.painLog=[...nd.painLog,{location:entry.location||"",type:entry.painType||"Dull/Aching",severity:String(entry.severity||5),resolved:false,date,id}];count++;}
+    });
+    if(count>0){setData(nd);sv(nd);}
+    const cleaned=text.replace(/```vitals-log[\s\S]*?```/g,"").trim()+(count>0?`\n\n✅ Logged ${count} item${count>1?"s":""}!`:"");
+    return{cleaned,count};
+  };
+
   // ── Coach Chat ──
   const sendChat=async()=>{if(!chatInput.trim()||chatLoading)return;
     const userMsg={role:"user",content:chatInput};
     const newHistory=[...chatHistory,userMsg];
     setChatHistory(newHistory);setChatInput("");setChatLoading(true);setE(null);
     try{
-      const sys=buildCoachSys()+`\n\nThis is a conversation. Answer the user's specific question using their data. Be concise (1-3 short paragraphs max). If they ask about training, reference their actual PRs, pain points, and recovery. If about nutrition, use their real intake numbers. Always be specific, never generic.`;
-      const messages=newHistory.slice(-10); // Keep last 10 messages for context
-      const txt=await callClaude({system:sys,messages,maxTokens:800});
-      setChatHistory([...newHistory,{role:"assistant",content:txt}]);
+      const sys=buildCoachSys()+`\n\nThis is a conversation. Answer the user's specific question using their data. Be concise (1-3 short paragraphs max). If they mention food they ate, exercises, sleep, supplements etc — offer to log it or log it directly if they ask. Always be specific, never generic.`;
+      const messages=newHistory.slice(-10);
+      const txt=await callClaude({system:sys,messages,maxTokens:1000});
+      const {cleaned}=executeLogBlock(txt);
+      setChatHistory([...newHistory,{role:"assistant",content:cleaned}]);
     }catch(e){setE(e.message||"Failed.");setChatHistory(newHistory);}
     setChatLoading(false);
   };
@@ -920,7 +959,7 @@ End with: [MEMORY]: one-sentence key takeaway for next time.`;
       </Glass>
       {/* Quick questions */}
       <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-        {["Should I train today?","What should I eat for dinner?","How's my recovery looking?","Any patterns you notice?"].map((q,i)=>
+        {["Should I train today?","I had chicken rice and avocado for lunch","What should I eat for dinner?","Build me a push workout","Log 7.5 hours of sleep, good quality","How's my recovery looking?"].map((q,i)=>
           <button key={i} onClick={()=>{setChatInput(q);}} style={{background:G.glass,border:`1px solid ${G.glassBorder}`,borderRadius:20,padding:"6px 12px",color:G.sub,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>{q}</button>)}
       </div>
     </div>}
