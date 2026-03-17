@@ -267,44 +267,27 @@ function Section({title,action,onAction,children}){
     {action&&<Btn onClick={onAction} v="ghost" sx={{fontSize:13,padding:"6px 14px"}}>{action}</Btn>}</div>{children}</div>;
 }
 
-// ─── BOTTOM NAV + MENU OVERLAY ───
+// ─── BOTTOM NAV ───
 function BottomNav({current,onNav}){
-  const [menuOpen,setMenuOpen]=useState(false);
-  const mainTabs=[
+  const tabs=[
     {id:"home",icon:"🏠",label:"Home"},
-    {id:"_track",icon:"➕",label:"Log"},
-    {id:"ai",icon:"🧠",label:"Coach"},
-    {id:"settings",icon:"⚙️",label:"More"},
+    {id:"log",icon:"➕",label:"Log"},
+    {id:"coach",icon:"🧠",label:"Coach"},
+    {id:"more",icon:"☰",label:"More"},
   ];
-  return <>
-    {/* Full screen menu overlay */}
-    {menuOpen&&<div style={{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:1050,background:"rgba(6,7,11,0.85)",backdropFilter:"blur(30px)",WebkitBackdropFilter:"blur(30px)",display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",padding:24}} onClick={()=>setMenuOpen(false)}>
-      <div style={{fontSize:12,fontWeight:700,color:G.dim,letterSpacing:2,marginBottom:24}}>NAVIGATE</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,maxWidth:360,width:"100%"}}>
-        {NAV_PAGES.map(p=><button key={p.id} onClick={e=>{e.stopPropagation();onNav(p.id);setMenuOpen(false);}}
-          style={{background:current===p.id?G.glass3:G.glass,backdropFilter:G.blur,WebkitBackdropFilter:G.blur,border:`1px solid ${current===p.id?G.glassBorder2:G.glassBorder}`,borderRadius:20,padding:"20px 8px",cursor:"pointer",fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"center",gap:8,transition:"all .2s"}}>
-          <span style={{fontSize:28,filter:`drop-shadow(0 0 10px ${p.color}60)`}}>{p.icon}</span>
-          <span style={{fontSize:11,fontWeight:600,color:current===p.id?G.txt:G.sub}}>{p.label}</span>
-        </button>)}
-      </div>
-      <button onClick={()=>setMenuOpen(false)} style={{marginTop:32,background:G.glass2,border:`1px solid ${G.glassBorder}`,borderRadius:20,padding:"12px 32px",color:G.txt,fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit",backdropFilter:G.blur}}>Close</button>
-    </div>}
-
-    {/* Pill bottom bar */}
-    <div style={{position:"fixed",bottom:16,left:"50%",transform:"translateX(-50%)",zIndex:1000,width:"auto",maxWidth:320}}>
-      <div style={{background:"rgba(18,19,26,0.8)",backdropFilter:"blur(24px)",WebkitBackdropFilter:"blur(24px)",borderRadius:28,border:`1px solid ${G.glassBorder2}`,padding:"6px 8px",display:"flex",gap:4,boxShadow:"0 8px 32px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.05) inset"}}>
-        {mainTabs.map(t=>{
-          const isActive=t.id==="_track"?menuOpen:(current===t.id);
-          return <button key={t.id} onClick={()=>{if(t.id==="_track")setMenuOpen(!menuOpen);else{setMenuOpen(false);onNav(t.id);}}}
-            style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"10px 16px",border:"none",borderRadius:22,cursor:"pointer",fontFamily:"inherit",
-              background:isActive?G.glass3:"transparent",transition:"all .2s"}}>
-            <span style={{fontSize:20,color:isActive?G.moss:G.dim,transition:"color .2s",filter:isActive?`drop-shadow(0 0 8px ${G.moss}60)`:"none"}}>{t.icon}</span>
-            <span style={{fontSize:9,fontWeight:isActive?700:500,color:isActive?G.moss:G.dim}}>{t.label}</span>
-          </button>;
-        })}
-      </div>
+  return <div style={{position:"fixed",bottom:16,left:"50%",transform:"translateX(-50%)",zIndex:1000,width:"auto",maxWidth:320}}>
+    <div style={{background:"rgba(18,19,26,0.8)",backdropFilter:"blur(24px)",WebkitBackdropFilter:"blur(24px)",borderRadius:28,border:`1px solid ${G.glassBorder2}`,padding:"6px 8px",display:"flex",gap:4,boxShadow:"0 8px 32px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.05) inset"}}>
+      {tabs.map(t=>{
+        const isActive=current===t.id;
+        return <button key={t.id} onClick={()=>onNav(t.id)}
+          style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"10px 16px",border:"none",borderRadius:22,cursor:"pointer",fontFamily:"inherit",
+            background:isActive?G.glass3:"transparent",transition:"all .2s"}}>
+          <span style={{fontSize:20,color:isActive?G.moss:G.dim,transition:"color .2s",filter:isActive?`drop-shadow(0 0 8px ${G.moss}60)`:"none"}}>{t.icon}</span>
+          <span style={{fontSize:9,fontWeight:isActive?700:500,color:isActive?G.moss:G.dim}}>{t.label}</span>
+        </button>;
+      })}
     </div>
-  </>;
+  </div>;
 }
 
 // ─── HOME PAGE ───
@@ -377,8 +360,8 @@ function HomePage({data,go,onQuickLog}){
 
       {/* Quick-log actions */}
       <div style={{display:"flex",gap:8,marginBottom:14}}>
-        {[{l:"+ Meal",icon:"🍽️",c:G.moss,go:"nutr"},{l:"+ Water",icon:"💧",c:G.teal,action:"water"},{l:"+ Workout",icon:"💪",c:G.orange,go:"train"},{l:"+ Sleep",icon:"🌙",c:G.purple,go:"sleep"}].map((a,i)=>
-          <button key={i} onClick={()=>{if(a.action==="water"){onQuickLog("water");}else go(a.go);}}
+        {[{l:"+ Meal",icon:"🍽️",c:G.moss},{l:"+ Water",icon:"💧",c:G.teal,action:"water"},{l:"+ Workout",icon:"💪",c:G.orange},{l:"+ Sleep",icon:"🌙",c:G.purple}].map((a,i)=>
+          <button key={i} onClick={()=>{if(a.action==="water"){onQuickLog("water");}else go("log");}}
             style={{flex:1,background:`${a.c}12`,border:`1px solid ${a.c}25`,borderRadius:14,padding:"10px 4px",cursor:"pointer",fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
             <span style={{fontSize:16}}>{a.icon}</span>
             <span style={{fontSize:10,fontWeight:700,color:a.c}}>{a.l}</span>
@@ -407,39 +390,67 @@ function HomePage({data,go,onQuickLog}){
         </GradCard>
       </div>
 
-      <div style={{marginBottom:10}}>
-        <Glass glow={`radial-gradient(circle,${G.orange}30,transparent 70%)`} style={{borderRadius:20}} onClick={()=>go("body")}>
-          <div style={{fontSize:10,color:G.dim,fontWeight:700}}>Weight</div>
-          <div style={{fontSize:30,fontWeight:800,color:G.txt,marginTop:4}}>{lb?.weight||"—"}<span style={{fontSize:12,color:G.dim}}> lbs</span></div>
+      {/* Vitals mini-grid */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
+        <Glass style={{padding:12,borderRadius:16,textAlign:"center"}} onClick={()=>go("log")}>
+          <div style={{fontSize:9,color:G.dim,fontWeight:700}}>Weight</div>
+          <div style={{fontSize:22,fontWeight:800,color:G.blue,marginTop:2}}>{lb?.weight||"—"}</div>
+          <div style={{fontSize:9,color:G.dim}}>lbs</div>
+        </Glass>
+        <Glass style={{padding:12,borderRadius:16,textAlign:"center"}} onClick={()=>go("log")}>
+          <div style={{fontSize:9,color:G.dim,fontWeight:700}}>SpO2</div>
+          <div style={{fontSize:22,fontWeight:800,color:G.blue,marginTop:2}}>{latestSpO2?.value||"—"}<span style={{fontSize:9}}>%</span></div>
+          <div style={{fontSize:9,color:G.dim}}>latest</div>
+        </Glass>
+        <Glass style={{padding:12,borderRadius:16,textAlign:"center"}} onClick={()=>go("log")}>
+          <div style={{fontSize:9,color:G.dim,fontWeight:700}}>Steps</div>
+          <div style={{fontSize:18,fontWeight:800,color:G.pink,marginTop:2}}>{latestSteps?.count||"—"}</div>
+          <div style={{fontSize:9,color:G.dim}}>latest</div>
         </Glass>
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
-        <Glass glow={`radial-gradient(circle,${G.blue}20,transparent 70%)`} style={{borderRadius:18,padding:14}} onClick={()=>go("health")}>
-          <div style={{textAlign:"center"}}><div style={{fontSize:9,color:G.dim,fontWeight:700,letterSpacing:.5}}>SpO2</div>
-          <div style={{fontSize:24,fontWeight:800,color:G.blue,marginTop:4}}>{latestSpO2?.value||"—"}<span style={{fontSize:10}}>%</span></div></div>
-        </Glass>
-        <Glass glow={`radial-gradient(circle,${G.pink}20,transparent 70%)`} style={{borderRadius:18,padding:14}} onClick={()=>go("health")}>
-          <div style={{textAlign:"center"}}><div style={{fontSize:9,color:G.dim,fontWeight:700,letterSpacing:.5}}>Steps</div>
-          <div style={{fontSize:20,fontWeight:800,color:G.pink,marginTop:4}}>{latestSteps?.count||"—"}</div></div>
-        </Glass>
-      </div>
-
-      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-        <div style={{background:G.glass2,backdropFilter:G.blur,borderRadius:20,padding:"6px 14px",border:`1px solid ${G.glassBorder}`,display:"flex",alignItems:"center",gap:6}}>
-          <div style={{width:6,height:6,borderRadius:3,background:G.purple}}/>
+      {/* Stat badges */}
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+        <div style={{background:G.glass2,backdropFilter:G.blur,borderRadius:20,padding:"5px 12px",border:`1px solid ${G.glassBorder}`,display:"flex",alignItems:"center",gap:5}}>
+          <div style={{width:5,height:5,borderRadius:3,background:G.purple}}/>
           <span style={{fontSize:11,color:G.sub,fontWeight:600}}>PRs: {data.prs.length}</span>
         </div>
-        {ap>0&&<div style={{background:"rgba(255,77,106,.1)",borderRadius:20,padding:"6px 14px",border:`1px solid rgba(255,77,106,.2)`,display:"flex",alignItems:"center",gap:6}}>
-          <div style={{width:6,height:6,borderRadius:3,background:G.red}}/>
+        {ap>0&&<div style={{background:"rgba(255,77,106,.1)",borderRadius:20,padding:"5px 12px",border:`1px solid rgba(255,77,106,.2)`,display:"flex",alignItems:"center",gap:5}}>
+          <div style={{width:5,height:5,borderRadius:3,background:G.red}}/>
           <span style={{fontSize:11,color:G.red,fontWeight:600}}>{ap} Pain{ap>1?"s":""}</span>
         </div>}
       </div>
 
-      {data.insights.length>0&&<Glass glow={`radial-gradient(circle at 0% 50%,${G.moss}20,transparent 60%)`} style={{marginBottom:16,borderRadius:20}} onClick={()=>go("ai")}>
+      {/* AI Insight teaser */}
+      {data.insights.length>0&&<Glass glow={`radial-gradient(circle at 0% 50%,${G.moss}20,transparent 60%)`} style={{marginBottom:14,borderRadius:20}} onClick={()=>go("coach")}>
         <div style={{fontSize:10,fontWeight:700,color:G.moss,letterSpacing:1.5,marginBottom:8}}>⬡ AI INSIGHT</div>
         <div style={{fontSize:13,color:G.sub,lineHeight:1.6}}>{data.insights[data.insights.length-1].text?.slice(0,200)}...</div>
       </Glass>}
+
+      {/* Today Feed */}
+      {(()=>{
+        const today=td();
+        const feed=[];
+        data.nutrition.filter(n=>n.date===today).forEach(n=>feed.push({k:n.id,label:n.food,sub:`${n.meal} · ${n.calories||0} cal`,icon:"🍽️",color:G.moss}));
+        data.training.filter(t=>t.date===today).forEach(t=>feed.push({k:t.id,label:t.name,sub:t.type==="Strength"?`${t.sets||""}×${t.reps||""}@${t.weight||""}lbs`:`${t.type} · ${t.duration||""}min`,icon:"💪",color:G.orange}));
+        data.hydration.filter(h=>h.date===today).forEach(h=>feed.push({k:h.id,label:`${h.oz}oz ${h.type||"Water"}`,sub:h.time||"",icon:"💧",color:G.teal}));
+        data.supplements.filter(s=>s.date===today).forEach(s=>feed.push({k:s.id,label:s.name,sub:`${s.timing}${s.dosage?` · ${s.dosage}`:""}`,icon:"💊",color:G.purple}));
+        data.sleep.filter(s=>s.date===today).forEach(s=>feed.push({k:s.id,label:`${s.hours}hrs sleep`,sub:s.quality,icon:"🌙",color:G.indigo}));
+        data.lifestyle.filter(l=>l.date===today).forEach(l=>feed.push({k:l.id,label:`Energy ${l.energy}/10 · Stress ${l.stress}/10`,sub:l.mood,icon:"🧘",color:G.pink}));
+        data.bodyMetrics.filter(b=>b.date===today).forEach(b=>feed.push({k:b.id,label:`${b.weight||"?"}lbs${b.bodyFat?` · ${b.bodyFat}% BF`:""}`,sub:"Body",icon:"📏",color:G.blue}));
+        data.painLog.filter(p=>p.date===today).forEach(p=>feed.push({k:p.id,label:`${p.location} pain`,sub:`${p.type} · ${p.severity}/10`,icon:"🩹",color:G.red}));
+        data.postWorkout.filter(p=>p.date===today).forEach(p=>feed.push({k:p.id,label:`Post-WO: RPE ${p.rpe}/10`,sub:`${p.mood} · Energy ${p.energy}/10`,icon:"⚡",color:G.amber}));
+        if(feed.length===0)return <Glass style={{marginBottom:16,borderRadius:20,padding:20,textAlign:"center"}} onClick={()=>go("log")}>
+          <div style={{fontSize:24,marginBottom:8}}>📋</div>
+          <div style={{fontSize:13,fontWeight:600,color:G.sub,marginBottom:4}}>Nothing logged yet today</div>
+          <div style={{fontSize:11,color:G.dim}}>Tap to open Log</div>
+        </Glass>;
+        return <div style={{marginBottom:16}}>
+          <div style={{fontSize:10,fontWeight:700,color:G.dim,letterSpacing:1,marginBottom:8}}>TODAY'S LOG</div>
+          {feed.map((f,i)=><EI key={f.k+i} primary={f.label} secondary={f.sub} color={f.color}/>)}
+          <Btn onClick={()=>go("log")} v="ghost" sx={{fontSize:12,padding:"6px 0",color:G.dim,marginTop:4}}>+ Log more →</Btn>
+        </div>;
+      })()}
     </div>
   </div>;
 }
@@ -1261,6 +1272,724 @@ function SettingsPage({data,setData}){
     </Modal>
   </div>;
 }
+// ─── LOG PAGE ───
+function LogPage({data,setData}){
+  const [active,setActive]=useState(null);
+  const today=td();
+  // AI text entry
+  const [aiText,setAiText]=useState("");const [aiTextL,setAiTextL]=useState(false);const [aiTextItems,setAiTextItems]=useState([]);
+  // Form states
+  const [mealF,setMealF]=useState({meal:"Lunch",food:"",calories:"",protein:"",carbs:"",fat:"",date:today});
+  const [exF,setExF]=useState({type:"Strength",name:"",sets:"",reps:"",weight:"",duration:"",distance:"",notes:"",date:today});
+  const [exSearch,setExSearch]=useState("");
+  const [waterF,setWaterF]=useState({oz:"16",type:"Water",date:today,time:new Date().toTimeString().slice(0,5)});
+  const [suppF,setSuppF]=useState({name:"Creatine",dosage:"",timing:"Morning",date:today});
+  const [sleepF,setSleepF]=useState({hours:"",quality:"Good",bedtime:"",wakeTime:"",notes:"",date:today});
+  const [bodyF,setBodyF]=useState({weight:"",bodyFat:"",chest:"",waist:"",arms:"",thighs:"",cardioDistance:"",cardioDuration:"",date:today});
+  const [moodF,setMoodF]=useState({energy:"7",stress:"4",mood:"Good",steps:"",notes:"",date:today});
+  const [painF,setPainF]=useState({location:"",type:"Dull/Aching",severity:"5",during:"",notes:"",date:today});
+  const [pwF,setPwF]=useState({rpe:"7",mood:"Good",energy:"7",pump:"7",soreness:"",notes:"",date:today});
+  const [healthL,setHealthL]=useState(false);const [healthR,setHealthR]=useState(null);const healthFileRef=useRef();
+
+  const pastExercises=[...new Set(data.training.map(t=>t.name).filter(Boolean))];
+  const exSuggestions=exSearch.length>=1?pastExercises.filter(e=>e.toLowerCase().includes(exSearch.toLowerCase())).slice(0,5):[];
+  const recentMeals=data.nutrition.filter(n=>n.date!==today).slice(-8).reverse().slice(0,4);
+  const stacks=data.suppStacks||[];
+
+  const analyzeText=async()=>{if(!aiText.trim())return;setAiTextL(true);setAiTextItems([]);try{
+    const txt=await callClaude({system:`Nutrition analyst. Accurate macros. Pure JSON array. ${data.profile.allergies?`Flag any items containing: ${data.profile.allergies}.`:""}
+Return ONLY valid JSON array: [{"food":"item with portion","calories":N,"protein":N,"carbs":N,"fat":N}]`,
+      messages:[{role:"user",content:`Analyze these foods: ${aiText}`}]});
+    const parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());
+    setAiTextItems(Array.isArray(parsed)?parsed:[parsed]);
+  }catch(e){setAiTextItems([{error:e.message||"Failed."}]);}setAiTextL(false);};
+
+  const addAiItem=(item)=>{const entry={meal:mealF.meal,food:item.food,calories:String(item.calories||0),protein:String(item.protein||0),carbs:String(item.carbs||0),fat:String(item.fat||0),date:today,id:uid()};const nd={...data,nutrition:[...data.nutrition,entry]};setData(nd);sv(nd);};
+  const addAllAiItems=()=>{const entries=aiTextItems.filter(i=>!i.error).map(item=>({meal:mealF.meal,food:item.food,calories:String(item.calories||0),protein:String(item.protein||0),carbs:String(item.carbs||0),fat:String(item.fat||0),date:today,id:uid()}));const nd={...data,nutrition:[...data.nutrition,...entries]};setData(nd);sv(nd);setAiText("");setAiTextItems([]);};
+
+  const addMeal=()=>{if(!mealF.food)return;const nd={...data,nutrition:[...data.nutrition,{...mealF,id:uid()}]};setData(nd);sv(nd);setMealF({meal:"Lunch",food:"",calories:"",protein:"",carbs:"",fat:"",date:today});setActive(null);};
+  const repeatMeal=(m)=>{const entry={...m,date:today,id:uid()};const nd={...data,nutrition:[...data.nutrition,entry]};setData(nd);sv(nd);};
+  const addExercise=()=>{if(!exF.name)return;const e={...exF,id:uid()};const nd={...data,training:[...data.training,e]};setData(nd);sv(nd);setExF({type:"Strength",name:"",sets:"",reps:"",weight:"",duration:"",distance:"",notes:"",date:today});setExSearch("");setActive(null);};
+  const addWater=()=>{const nd={...data,hydration:[...data.hydration,{...waterF,id:uid()}]};setData(nd);sv(nd);setWaterF({oz:"16",type:"Water",date:today,time:new Date().toTimeString().slice(0,5)});setActive(null);};
+  const quickWater=(oz)=>{const nd={...data,hydration:[...data.hydration,{oz:String(oz),type:"Water",date:today,time:new Date().toTimeString().slice(0,5),id:uid()}]};setData(nd);sv(nd);};
+  const addSupp=()=>{if(!suppF.name)return;const nd={...data,supplements:[...data.supplements,{...suppF,id:uid()}]};setData(nd);sv(nd);setSuppF({name:"Creatine",dosage:"",timing:"Morning",date:today});setActive(null);};
+  const logStack=(stack)=>{const entries=stack.items.map(item=>({...item,date:today,id:uid()}));const nd={...data,supplements:[...data.supplements,...entries]};setData(nd);sv(nd);};
+  const addSleep=()=>{if(!sleepF.hours)return;const nd={...data,sleep:[...data.sleep,{...sleepF,id:uid()}]};setData(nd);sv(nd);setSleepF({hours:"",quality:"Good",bedtime:"",wakeTime:"",notes:"",date:today});setActive(null);};
+  const addBody=()=>{let v2=null;if(bodyF.cardioDistance&&bodyF.cardioDuration)v2=vo2(Number(bodyF.cardioDistance),Number(bodyF.cardioDuration));const nd={...data,bodyMetrics:[...data.bodyMetrics,{...bodyF,vo2max:v2,id:uid()}]};setData(nd);sv(nd);setBodyF({weight:"",bodyFat:"",chest:"",waist:"",arms:"",thighs:"",cardioDistance:"",cardioDuration:"",date:today});setActive(null);};
+  const addMood=()=>{const nd={...data,lifestyle:[...data.lifestyle,{...moodF,id:uid()}]};setData(nd);sv(nd);setMoodF({energy:"7",stress:"4",mood:"Good",steps:"",notes:"",date:today});setActive(null);};
+  const addPain=()=>{if(!painF.location)return;const nd={...data,painLog:[...data.painLog,{...painF,id:uid(),resolved:false}]};setData(nd);sv(nd);setPainF({location:"",type:"Dull/Aching",severity:"5",during:"",notes:"",date:today});setActive(null);};
+  const addPW=()=>{const nd={...data,postWorkout:[...data.postWorkout,{...pwF,id:uid()}]};setData(nd);sv(nd);setPwF({rpe:"7",mood:"Good",energy:"7",pump:"7",soreness:"",notes:"",date:today});setActive(null);};
+
+  const analyzeHealth=async(file)=>{setHealthL(true);setHealthR(null);try{const b64=await toB64(file);const bd=b64.split(",")[1];
+    const txt=await callClaude({system:`Extract health data from Apple Health screenshots. JSON only:
+{"type":"sleep|heart_rate|ecg|blood_oxygen|respiratory|steps|vo2max|workout|other","data":{...},"date":"YYYY-MM-DD","summary":"brief"}`,
+      messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:file.type||"image/jpeg",data:bd}},{type:"text",text:"Extract health data."}]}]});
+    const parsed=JSON.parse(txt.replace(/```json|```/g,"").trim());setHealthR(parsed);
+    const nd={...data};const date=parsed.date||today;const entry={...parsed.data,id:uid(),date,source:"health_import"};
+    if(parsed.type==="sleep")nd.sleep=[...nd.sleep,{hours:String(parsed.data.hours||""),quality:parsed.data.deep>1.5?"Good":"Fair",bedtime:parsed.data.bedtime||"",wakeTime:parsed.data.wakeTime||"",deep:parsed.data.deep,rem:parsed.data.rem,core:parsed.data.core,awake:parsed.data.awake,date,id:uid(),source:"health_import"}];
+    else if(parsed.type==="heart_rate")nd.heartRate=[...nd.heartRate,entry];
+    else if(parsed.type==="ecg")nd.ecg=[...nd.ecg,entry];
+    else if(parsed.type==="blood_oxygen")nd.bloodOx=[...nd.bloodOx,entry];
+    else if(parsed.type==="respiratory")nd.respiratory=[...nd.respiratory,entry];
+    else if(parsed.type==="steps")nd.stepsData=[...nd.stepsData,entry];
+    else if(parsed.type==="workout")nd.watchWorkouts=[...nd.watchWorkouts,entry];
+    nd.healthImports=[...nd.healthImports,{id:uid(),date:today,type:parsed.type,summary:parsed.summary}];setData(nd);sv(nd);
+  }catch(e){setHealthR({error:e.message||"Failed."});}setHealthL(false);};
+
+  const cats=[
+    {id:"meal",label:"Meal",icon:"🍽️",color:G.moss},
+    {id:"exercise",label:"Exercise",icon:"💪",color:G.orange},
+    {id:"water",label:"Water",icon:"💧",color:G.teal},
+    {id:"supps",label:"Supps",icon:"💊",color:G.purple},
+    {id:"sleep",label:"Sleep",icon:"🌙",color:G.indigo},
+    {id:"body",label:"Body",icon:"📏",color:G.blue},
+    {id:"mood",label:"Mood",icon:"🧘",color:G.pink},
+    {id:"pain",label:"Pain",icon:"🩹",color:G.red},
+    {id:"postWO",label:"Post-WO",icon:"⚡",color:G.amber},
+    {id:"health",label:"Health",icon:"❤️",color:G.red},
+  ];
+  const toggle=(id)=>setActive(a=>a===id?null:id);
+
+  // Build today feed
+  const todayFeed=[];
+  data.nutrition.filter(n=>n.date===today).forEach(n=>todayFeed.push({k:n.id,label:n.food,sub:`${n.meal} · ${n.calories||0}cal · P:${n.protein||0}g`,icon:"🍽️",color:G.moss}));
+  data.training.filter(t=>t.date===today).forEach(t=>todayFeed.push({k:t.id,label:t.name,sub:t.type==="Strength"?`${t.sets||""}×${t.reps||""}@${t.weight||""}lbs`:`${t.type} · ${t.duration||""}min`,icon:"💪",color:G.orange}));
+  data.hydration.filter(h=>h.date===today).forEach(h=>todayFeed.push({k:h.id,label:`${h.oz}oz ${h.type||"Water"}`,sub:h.time||"",icon:"💧",color:G.teal}));
+  data.supplements.filter(s=>s.date===today).forEach(s=>todayFeed.push({k:s.id,label:s.name,sub:`${s.timing}${s.dosage?` · ${s.dosage}`:""}`,icon:"💊",color:G.purple}));
+  data.sleep.filter(s=>s.date===today).forEach(s=>todayFeed.push({k:s.id,label:`${s.hours}hrs sleep`,sub:s.quality,icon:"🌙",color:G.indigo}));
+  data.lifestyle.filter(l=>l.date===today).forEach(l=>todayFeed.push({k:l.id,label:`Energy ${l.energy}/10 · Stress ${l.stress}/10`,sub:l.mood,icon:"🧘",color:G.pink}));
+  data.bodyMetrics.filter(b=>b.date===today).forEach(b=>todayFeed.push({k:b.id,label:`${b.weight||"?"}lbs${b.bodyFat?` · ${b.bodyFat}% BF`:""}`,sub:"Body",icon:"📏",color:G.blue}));
+  data.painLog.filter(p=>p.date===today).forEach(p=>todayFeed.push({k:p.id,label:`${p.location} pain`,sub:`${p.type} · ${p.severity}/10`,icon:"🩹",color:G.red}));
+  data.postWorkout.filter(p=>p.date===today).forEach(p=>todayFeed.push({k:p.id,label:`Post-WO: RPE ${p.rpe}/10`,sub:`${p.mood} · Energy ${p.energy}/10`,icon:"⚡",color:G.amber}));
+
+  return <div>
+    {/* AI Text Entry */}
+    <Glass glow={`radial-gradient(circle at 30% 50%,${G.moss}20,transparent 60%)`} style={{marginBottom:14,borderRadius:20,padding:16}}>
+      <div style={{fontSize:13,fontWeight:700,color:G.moss,marginBottom:4}}>✍️ Describe anything</div>
+      <div style={{fontSize:11,color:G.dim,marginBottom:10,lineHeight:1.4}}>Food, workouts, sleep, supplements — AI parses the macros and logs it.</div>
+      <textarea value={aiText} onChange={e=>setAiText(e.target.value)} placeholder="e.g. 150g chicken breast, cup of brown rice, and 16oz water" style={{width:"100%",background:G.glass2,border:`1px solid ${G.glassBorder}`,borderRadius:12,padding:"10px 12px",color:G.txt,fontSize:14,outline:"none",fontFamily:"inherit",boxSizing:"border-box",minHeight:56,resize:"vertical"}}/>
+      <Btn onClick={analyzeText} disabled={aiTextL||!aiText.trim()} sx={{width:"100%",marginTop:8,padding:11}} v={aiText.trim()?"primary":"secondary"}>
+        {aiTextL?"Analyzing...":"🧠 Get Macros"}
+      </Btn>
+      {aiTextItems.length>0&&!aiTextItems[0]?.error&&<div style={{marginTop:12}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+          <span style={{fontSize:12,fontWeight:700,color:G.moss}}>✓ {aiTextItems.length} item{aiTextItems.length>1?"s":""}</span>
+          <Btn onClick={addAllAiItems} v="primary" sx={{fontSize:11,padding:"5px 12px"}}>Log All</Btn>
+        </div>
+        {aiTextItems.map((item,i)=><div key={i} style={{background:G.glass,borderRadius:12,padding:"8px 12px",marginBottom:4,border:`1px solid ${G.glassBorder}`,display:"flex",alignItems:"center",gap:8}}>
+          <div style={{flex:1}}><div style={{fontSize:13,color:G.txt,fontWeight:500}}>{item.food}</div><div style={{fontSize:11,color:G.dim}}>P:{item.protein}g · C:{item.carbs}g · F:{item.fat}g</div></div>
+          <div style={{fontSize:15,fontWeight:800,color:G.moss,minWidth:36,textAlign:"right"}}>{item.calories}</div>
+          <button onClick={()=>addAiItem(item)} style={{background:`${G.moss}20`,border:`1px solid ${G.moss}30`,borderRadius:8,width:26,height:26,color:G.moss,cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>+</button>
+        </div>)}
+      </div>}
+      {aiTextItems[0]?.error&&<div style={{color:G.red,fontSize:12,marginTop:8}}>{aiTextItems[0].error}</div>}
+    </Glass>
+
+    {/* Supplement Stacks quick-log */}
+    {stacks.length>0&&<div style={{marginBottom:12}}>
+      <div style={{fontSize:10,fontWeight:700,color:G.dim,letterSpacing:1,marginBottom:6}}>SUPPLEMENT STACKS</div>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+        {stacks.map(stack=><button key={stack.id} onClick={()=>logStack(stack)}
+          style={{background:`${G.purple}15`,border:`1px solid ${G.purple}25`,borderRadius:20,padding:"6px 14px",color:G.purple,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+          💊 {stack.name}
+        </button>)}
+      </div>
+    </div>}
+
+    {/* Category Grid */}
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:2}}>
+      {cats.map(cat=><button key={cat.id} onClick={()=>toggle(cat.id)}
+        style={{background:active===cat.id?`${cat.color}18`:G.glass,border:`1px solid ${active===cat.id?cat.color+"35":G.glassBorder}`,borderRadius:16,padding:"12px 10px",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:8,transition:"all .15s"}}>
+        <span style={{fontSize:20,filter:active===cat.id?`drop-shadow(0 0 8px ${cat.color}60)`:"none"}}>{cat.icon}</span>
+        <span style={{fontSize:13,fontWeight:600,color:active===cat.id?cat.color:G.sub}}>{cat.label}</span>
+        <span style={{marginLeft:"auto",fontSize:11,color:active===cat.id?cat.color:G.dim}}>{active===cat.id?"▲":"▼"}</span>
+      </button>)}
+    </div>
+
+    {/* Inline Forms */}
+    {active==="meal"&&<Glass style={{marginTop:6,marginBottom:6,borderRadius:16,padding:16,borderTop:`3px solid ${G.moss}`}}>
+      {recentMeals.length>0&&<div style={{marginBottom:12}}>
+        <div style={{fontSize:10,fontWeight:700,color:G.dim,marginBottom:6}}>REPEAT RECENT</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+          {recentMeals.map((m,i)=><button key={i} onClick={()=>repeatMeal(m)}
+            style={{background:G.glass2,border:`1px solid ${G.glassBorder}`,borderRadius:10,padding:"4px 10px",color:G.sub,fontSize:11,cursor:"pointer",fontFamily:"inherit"}}>
+            ↩ {m.food.slice(0,22)}{m.food.length>22?"…":""}
+          </button>)}
+        </div>
+      </div>}
+      <Fld label="Meal" opts={["Breakfast","Lunch","Dinner","Snack","Pre-workout","Post-workout"]} value={mealF.meal} set={v=>setMealF({...mealF,meal:v})}/>
+      <Fld label="Food" value={mealF.food} set={v=>setMealF({...mealF,food:v})} ph="e.g. Chicken & rice"/>
+      <div style={{display:"flex",gap:8}}>
+        <div style={{flex:1}}><Fld label="Cal" type="number" value={mealF.calories} set={v=>setMealF({...mealF,calories:v})}/></div>
+        <div style={{flex:1}}><Fld label="Prot" type="number" value={mealF.protein} set={v=>setMealF({...mealF,protein:v})}/></div>
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <div style={{flex:1}}><Fld label="Carb" type="number" value={mealF.carbs} set={v=>setMealF({...mealF,carbs:v})}/></div>
+        <div style={{flex:1}}><Fld label="Fat" type="number" value={mealF.fat} set={v=>setMealF({...mealF,fat:v})}/></div>
+      </div>
+      <Btn onClick={addMeal} sx={{width:"100%"}}>Log Meal</Btn>
+    </Glass>}
+
+    {active==="exercise"&&<Glass style={{marginTop:6,marginBottom:6,borderRadius:16,padding:16,borderTop:`3px solid ${G.orange}`}}>
+      <Fld label="Type" opts={["Strength","Cardio","Plyometrics","Mobility","Sport"]} value={exF.type} set={v=>setExF({...exF,type:v})}/>
+      <div style={{position:"relative",marginBottom:14}}>
+        <label style={{display:"block",fontSize:13,color:G.sub,marginBottom:6,fontWeight:600}}>Exercise</label>
+        <input value={exF.name} onChange={e=>{setExF({...exF,name:e.target.value});setExSearch(e.target.value);}}
+          placeholder="e.g. Squat" style={{width:"100%",background:G.glass2,border:`1px solid ${G.glassBorder}`,borderRadius:14,padding:"12px 14px",color:G.txt,fontSize:15,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
+        {exSuggestions.length>0&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:"#1a1b26",border:`1px solid ${G.glassBorder2}`,borderRadius:12,zIndex:50,overflow:"hidden"}}>
+          {exSuggestions.map((s,i)=><button key={i} onClick={()=>{setExF({...exF,name:s});setExSearch("");}}
+            style={{width:"100%",padding:"10px 14px",background:"transparent",border:"none",color:G.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",textAlign:"left",borderBottom:i<exSuggestions.length-1?`1px solid ${G.glassBorder}`:"none"}}>{s}</button>)}
+        </div>}
+      </div>
+      {exF.type==="Strength"&&<div style={{display:"flex",gap:8}}>
+        <div style={{flex:1}}><Fld label="Sets" type="number" value={exF.sets} set={v=>setExF({...exF,sets:v})}/></div>
+        <div style={{flex:1}}><Fld label="Reps" type="number" value={exF.reps} set={v=>setExF({...exF,reps:v})}/></div>
+        <div style={{flex:1}}><Fld label="Wt(lbs)" type="number" value={exF.weight} set={v=>setExF({...exF,weight:v})}/></div>
+      </div>}
+      {(exF.type==="Cardio"||exF.type==="Sport")&&<div style={{display:"flex",gap:8}}>
+        <div style={{flex:1}}><Fld label="Dur(min)" type="number" value={exF.duration} set={v=>setExF({...exF,duration:v})}/></div>
+        <div style={{flex:1}}><Fld label="Dist(mi)" type="number" value={exF.distance} set={v=>setExF({...exF,distance:v})}/></div>
+      </div>}
+      <Fld label="Notes" type="textarea" value={exF.notes} set={v=>setExF({...exF,notes:v})} ph="Optional"/>
+      <Btn onClick={addExercise} sx={{width:"100%"}}>Log Exercise</Btn>
+    </Glass>}
+
+    {active==="water"&&<Glass style={{marginTop:6,marginBottom:6,borderRadius:16,padding:16,borderTop:`3px solid ${G.teal}`}}>
+      <div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
+        {[8,12,16,20,24,32].map(oz=><button key={oz} onClick={()=>{quickWater(oz);setActive(null);}}
+          style={{background:`${G.teal}15`,border:`1px solid ${G.teal}25`,borderRadius:20,padding:"8px 14px",color:G.teal,fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+{oz}oz</button>)}
+      </div>
+      <Fld label="Custom oz" type="number" value={waterF.oz} set={v=>setWaterF({...waterF,oz:v})}/>
+      <Fld label="Type" opts={["Water","Electrolytes","Tea","Coffee","Juice","Smoothie"]} value={waterF.type} set={v=>setWaterF({...waterF,type:v})}/>
+      <Btn onClick={addWater} sx={{width:"100%"}}>Log Water</Btn>
+    </Glass>}
+
+    {active==="supps"&&<Glass style={{marginTop:6,marginBottom:6,borderRadius:16,padding:16,borderTop:`3px solid ${G.purple}`}}>
+      <Fld label="Supplement" opts={SUPP_LIST} value={suppF.name} set={v=>setSuppF({...suppF,name:v})}/>
+      <Fld label="Dose" value={suppF.dosage} set={v=>setSuppF({...suppF,dosage:v})} ph="e.g. 5g"/>
+      <Fld label="Timing" opts={["Morning","Pre-workout","Post-workout","With meal","Evening","Before bed"]} value={suppF.timing} set={v=>setSuppF({...suppF,timing:v})}/>
+      <Btn onClick={addSupp} sx={{width:"100%"}}>Log Supplement</Btn>
+    </Glass>}
+
+    {active==="sleep"&&<Glass style={{marginTop:6,marginBottom:6,borderRadius:16,padding:16,borderTop:`3px solid ${G.indigo}`}}>
+      <Fld label="Hours" type="number" value={sleepF.hours} set={v=>setSleepF({...sleepF,hours:v})} step=".25"/>
+      <Fld label="Quality" opts={["Excellent","Good","Fair","Poor"]} value={sleepF.quality} set={v=>setSleepF({...sleepF,quality:v})}/>
+      <div style={{display:"flex",gap:8}}>
+        <div style={{flex:1}}><Fld label="Bedtime" type="time" value={sleepF.bedtime} set={v=>setSleepF({...sleepF,bedtime:v})}/></div>
+        <div style={{flex:1}}><Fld label="Wake" type="time" value={sleepF.wakeTime} set={v=>setSleepF({...sleepF,wakeTime:v})}/></div>
+      </div>
+      <Fld label="Notes" type="textarea" value={sleepF.notes} set={v=>setSleepF({...sleepF,notes:v})} ph="Optional"/>
+      <Btn onClick={addSleep} sx={{width:"100%"}}>Log Sleep</Btn>
+    </Glass>}
+
+    {active==="body"&&<Glass style={{marginTop:6,marginBottom:6,borderRadius:16,padding:16,borderTop:`3px solid ${G.blue}`}}>
+      <div style={{display:"flex",gap:8}}>
+        <div style={{flex:1}}><Fld label="Weight(lbs)" type="number" value={bodyF.weight} set={v=>setBodyF({...bodyF,weight:v})} step=".1"/></div>
+        <div style={{flex:1}}><Fld label="BF%" type="number" value={bodyF.bodyFat} set={v=>setBodyF({...bodyF,bodyFat:v})} step=".1"/></div>
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <div style={{flex:1}}><Fld label="Chest" type="number" value={bodyF.chest} set={v=>setBodyF({...bodyF,chest:v})}/></div>
+        <div style={{flex:1}}><Fld label="Waist" type="number" value={bodyF.waist} set={v=>setBodyF({...bodyF,waist:v})}/></div>
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <div style={{flex:1}}><Fld label="Arms" type="number" value={bodyF.arms} set={v=>setBodyF({...bodyF,arms:v})}/></div>
+        <div style={{flex:1}}><Fld label="Thighs" type="number" value={bodyF.thighs} set={v=>setBodyF({...bodyF,thighs:v})}/></div>
+      </div>
+      <Btn onClick={addBody} sx={{width:"100%"}}>Save Measurements</Btn>
+    </Glass>}
+
+    {active==="mood"&&<Glass style={{marginTop:6,marginBottom:6,borderRadius:16,padding:16,borderTop:`3px solid ${G.pink}`}}>
+      <Slider label="Energy" value={moodF.energy} set={v=>setMoodF({...moodF,energy:v})} color={G.moss}/>
+      <Slider label="Stress" value={moodF.stress} set={v=>setMoodF({...moodF,stress:v})} color={G.red}/>
+      <Fld label="Mood" opts={["Excellent","Good","Okay","Low","Bad"]} value={moodF.mood} set={v=>setMoodF({...moodF,mood:v})}/>
+      <Fld label="Steps" type="number" value={moodF.steps} set={v=>setMoodF({...moodF,steps:v})}/>
+      <Btn onClick={addMood} sx={{width:"100%"}}>Log Lifestyle</Btn>
+    </Glass>}
+
+    {active==="pain"&&<Glass style={{marginTop:6,marginBottom:6,borderRadius:16,padding:16,borderTop:`3px solid ${G.red}`}}>
+      <Fld label="Location" opts={PAIN_LOCS} value={painF.location} set={v=>setPainF({...painF,location:v})}/>
+      <Fld label="Type" opts={PAIN_TYPES} value={painF.type} set={v=>setPainF({...painF,type:v})}/>
+      <Slider label="Severity" value={painF.severity} set={v=>setPainF({...painF,severity:v})} color={G.red}/>
+      <Fld label="During activity?" value={painF.during} set={v=>setPainF({...painF,during:v})} ph="e.g. squatting"/>
+      <Btn onClick={addPain} sx={{width:"100%"}}>Log Pain</Btn>
+    </Glass>}
+
+    {active==="postWO"&&<Glass style={{marginTop:6,marginBottom:6,borderRadius:16,padding:16,borderTop:`3px solid ${G.amber}`}}>
+      <Slider label="RPE (Rate of Perceived Exertion)" value={pwF.rpe} set={v=>setPwF({...pwF,rpe:v})} color={G.orange}/>
+      <Slider label="Energy" value={pwF.energy} set={v=>setPwF({...pwF,energy:v})} color={G.moss}/>
+      <Slider label="Pump" value={pwF.pump} set={v=>setPwF({...pwF,pump:v})} color={G.purple}/>
+      <Fld label="Mood" opts={["Fired Up","Strong","Good","Okay","Drained","Frustrated"]} value={pwF.mood} set={v=>setPwF({...pwF,mood:v})}/>
+      <Fld label="Soreness" value={pwF.soreness} set={v=>setPwF({...pwF,soreness:v})} ph="e.g. legs, upper back"/>
+      <Btn onClick={addPW} sx={{width:"100%"}}>Save Post-Workout</Btn>
+    </Glass>}
+
+    {active==="health"&&<Glass style={{marginTop:6,marginBottom:6,borderRadius:16,padding:16,borderTop:`3px solid ${G.red}`}}>
+      <div style={{textAlign:"center",padding:"4px 0 12px"}}>
+        <div style={{fontSize:12,color:G.sub,lineHeight:1.5,marginBottom:12}}>Screenshot any Apple Health screen — AI extracts the data automatically.</div>
+        <Btn onClick={()=>healthFileRef.current?.click()} disabled={healthL} sx={{padding:"12px 24px",fontSize:14}}>{healthL?"Analyzing...":"📸 Upload Screenshot"}</Btn>
+        <input ref={healthFileRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{if(e.target.files[0])analyzeHealth(e.target.files[0]);}}/>
+      </div>
+      {healthR?.error&&<div style={{color:G.red,fontSize:12,marginTop:8}}>{healthR.error}</div>}
+      {healthR&&!healthR.error&&<div style={{background:G.glass,borderRadius:12,padding:12,marginTop:8}}>
+        <div style={{fontSize:12,fontWeight:700,color:G.moss,marginBottom:4}}>✓ Imported: {healthR.type?.replace(/_/g," ")}</div>
+        <div style={{fontSize:11,color:G.dim}}>{healthR.summary}</div>
+      </div>}
+    </Glass>}
+
+    {/* Today Feed */}
+    {todayFeed.length>0&&<div style={{marginTop:18}}>
+      <div style={{fontSize:10,fontWeight:700,color:G.dim,letterSpacing:1,marginBottom:8}}>TODAY'S LOG</div>
+      {todayFeed.map((f,i)=><EI key={f.k+i} primary={f.label} secondary={f.sub} color={f.color}/>)}
+    </div>}
+  </div>;
+}
+// ─── COACH PAGE (Chat + Analysis + Workout Builder + History + Memory) ───
+function CoachPage({data,setData}){
+  const intel=useVitalsIntel(data);
+  const [tab,setTab]=useState("chat");
+  // Chat state
+  const [chatInput,setChatInput]=useState("");const [chatHistory,setChatHistory]=useState([]);const [chatLoading,setChatLoading]=useState(false);
+  const chatEndRef=useRef(null);
+  // Analysis state
+  const [genLoading,setGenLoading]=useState(false);const [genErr,setGenErr]=useState(null);
+  // Workout builder state
+  const [wbF,setWbF]=useState({focus:"Full Body",duration:"60",equipment:"Full Gym",intensity:"Moderate",notes:""});
+  const [wbLoading,setWbLoading]=useState(false);const [wbResult,setWbResult]=useState(null);const [wbErr,setWbErr]=useState(null);
+  const [saved,setSaved]=useState([]);const [expandedId,setExpandedId]=useState(null);const [logLoading,setLogLoading]=useState(null);const [logSuccess,setLogSuccess]=useState(null);
+  const [err,setErr]=useState(null);
+
+  useEffect(()=>{(async()=>{try{const s=await getData("vitals-workouts");if(s)setSaved(s);}catch{}})();},[]);
+  useEffect(()=>{chatEndRef.current?.scrollIntoView({behavior:"smooth"});},[chatHistory]);
+
+  const buildContext=()=>{
+    const mem=data.aiMemory.slice(-12).map(m=>`[${m.date}] ${m.summary}`).join("\n");
+    const painH=data.painLog.map(p=>`${p.date}:${p.location}(${p.type},sev:${p.severity})${p.resolved?"[resolved]":"[active]"}`).join("\n");
+    const prH=data.prs.slice(-25).map(p=>`${p.date}:${p.exercise} ${p.repMax}@${p.weight}lbs`).join("\n");
+    const pwH=data.postWorkout.slice(-14).map(p=>`${p.date}:RPE${p.rpe} Energy${p.energy} ${p.mood}`).join("\n");
+    const suppH=[...new Set(data.supplements.map(s=>s.name))].join(", ");
+    const hydAvg=intel.avgWater!=null?Math.round(intel.avgWater):0;
+    const hrD=data.heartRate.slice(-7).map(h=>`${h.date}:rest${h.resting} HRV:${h.hrv}`).join("\n");
+    return{mem,painH,prH,pwH,suppH,hydAvg,hrD};
+  };
+
+  const coachPersonality=`You are a knowledgeable, supportive wellness coach — think of yourself as a good training partner who's also well-read on nutrition and recovery. Your tone is:
+- Warm and encouraging, never clinical or alarming
+- Conversational — talk like a friend, not a textbook
+- Specific to the user's actual data — reference their real numbers, not generic advice
+- Honest but constructive — if something needs attention, frame it as an opportunity, not a problem
+- Concise — get to the point, no filler paragraphs
+
+NEVER use words like: CRITICAL, DEFICIENCY, ALARMING, WARNING, DANGER, SEVERE, URGENT, CONCERNING (in caps or otherwise alarmist framing).
+Instead of "CRITICAL PROTEIN DEFICIENCY" say something like "Your protein has been running a bit low — around ${Math.round(intel.avgProt||0)}g vs your ${intel.tgt.protein}g target. An extra shake or some chicken would close that gap."
+Instead of "WARNING: Overtraining detected" say "You've been going hard — your body might appreciate a lighter day."
+
+When referencing data, be specific: use actual numbers, dates, and exercise names from their log. Don't generalize.`;
+
+  const buildCoachSys=()=>{
+    const ctx=buildContext();
+    return `${coachPersonality}
+
+ABOUT THIS PERSON:
+${data.profile.name||"User"}, ${data.profile.age||""}yo. Goals: ${(data.profile.goals||[]).join(", ")||"general wellness"}. ${data.profile.allergies?`Allergies/restrictions: ${data.profile.allergies}.`:""} ${data.profile.units||"imperial"} units.
+Targets: ${intel.tgt.calories}cal, ${intel.tgt.protein}g protein, ${intel.tgt.water}oz water.
+Recovery score: ${intel.recoveryScore!=null?intel.recoveryScore+"/100 ("+intel.recoveryLabel+")":"not enough data yet"}.
+
+CURRENT DATA SNAPSHOT:
+Today: ${intel.todayCal}cal, ${intel.todayProt}g protein, ${intel.todayWater}oz water.
+7-day averages: ${Math.round(intel.avgCal||0)}cal, ${Math.round(intel.avgProt||0)}g protein, ${Math.round(intel.avgWater||0)}oz water.
+Sleep: avg ${intel.avgSleepHrs!=null?intel.avgSleepHrs.toFixed(1):"?"}hrs. Workouts this week: ${intel.workoutsThisWeek}.
+${intel.avgRPE!=null?"Avg RPE: "+intel.avgRPE.toFixed(1)+"/10. ":""}${intel.avgStress!=null?"Avg stress: "+intel.avgStress.toFixed(1)+"/10. ":""}
+Stale muscle groups (5+ days): ${intel.staleMuscles.join(", ")||"none"}.
+Active pains: ${intel.activePains.map(p=>p.location+" ("+p.type+", "+p.severity+"/10)").join(", ")||"none"}.
+
+MEMORY (past analyses):
+${ctx.mem||"First session."}
+PAIN HISTORY: ${ctx.painH||"None."}
+PRs: ${ctx.prH||"None."}
+POST-WORKOUT: ${ctx.pwH||"None."}
+SUPPLEMENTS: ${ctx.suppH||"None."}
+HYDRATION avg: ${ctx.hydAvg}oz/day
+HEART RATE: ${ctx.hrD||"None."}
+
+LOGGING CAPABILITY:
+You can log items for the user. When they mention food, exercises, water, supplements, sleep, weight, or mood, offer to log it. When they confirm (or if they clearly want it logged like "log 8 hours sleep"), include a JSON block the app will parse:
+
+\`\`\`vitals-log
+{"entries":[
+  {"type":"meal","food":"description","calories":N,"protein":N,"carbs":N,"fat":N,"meal":"Lunch"},
+  {"type":"training","name":"Exercise","sets":"N","reps":"N","weight":"N","exerciseType":"Strength"},
+  {"type":"water","oz":"N"},
+  {"type":"supplement","name":"Name","dosage":"5g","timing":"Morning"},
+  {"type":"sleep","hours":"N","quality":"Good","bedtime":"23:00","wakeTime":"06:30"},
+  {"type":"body","weight":"N","bodyFat":"N"},
+  {"type":"lifestyle","energy":"N","stress":"N","mood":"Good"},
+  {"type":"pain","location":"Lower Back","painType":"Dull/Aching","severity":"N"}
+]}
+\`\`\`
+Only include relevant types. For meals, estimate accurate macros using USDA data. Always confirm before logging unless the user explicitly asks to log.`;
+  };
+
+  const executeLogBlock=(text)=>{
+    const match=text.match(/```vitals-log\s*([\s\S]*?)\s*```/);
+    if(!match)return{cleaned:text,count:0};
+    let logData;try{logData=JSON.parse(match[1]);}catch{return{cleaned:text,count:0};}
+    if(!logData?.entries)return{cleaned:text,count:0};
+    let nd={...data};let count=0;const date=td();
+    logData.entries.forEach(entry=>{const id=uid();
+      if(entry.type==="meal"){nd.nutrition=[...nd.nutrition,{meal:entry.meal||"Lunch",food:entry.food||"",calories:String(entry.calories||0),protein:String(entry.protein||0),carbs:String(entry.carbs||0),fat:String(entry.fat||0),date,id}];count++;}
+      if(entry.type==="training"){nd.training=[...nd.training,{type:entry.exerciseType||"Strength",name:entry.name||"",sets:String(entry.sets||""),reps:String(entry.reps||""),weight:String(entry.weight||""),duration:String(entry.duration||""),notes:"",date,id}];count++;}
+      if(entry.type==="water"){nd.hydration=[...nd.hydration,{oz:String(entry.oz||16),type:"Water",date,time:new Date().toTimeString().slice(0,5),id}];count++;}
+      if(entry.type==="supplement"){nd.supplements=[...nd.supplements,{name:entry.name||"",dosage:entry.dosage||"",timing:entry.timing||"Morning",date,id}];count++;}
+      if(entry.type==="sleep"){nd.sleep=[...nd.sleep,{hours:String(entry.hours||""),quality:entry.quality||"Good",bedtime:entry.bedtime||"",wakeTime:entry.wakeTime||"",date,id}];count++;}
+      if(entry.type==="body"){nd.bodyMetrics=[...nd.bodyMetrics,{weight:String(entry.weight||""),bodyFat:String(entry.bodyFat||""),date,id}];count++;}
+      if(entry.type==="lifestyle"){nd.lifestyle=[...nd.lifestyle,{energy:String(entry.energy||5),stress:String(entry.stress||5),mood:entry.mood||"Good",date,id}];count++;}
+      if(entry.type==="pain"){nd.painLog=[...nd.painLog,{location:entry.location||"",type:entry.painType||"Dull/Aching",severity:String(entry.severity||5),resolved:false,date,id}];count++;}
+    });
+    if(count>0){setData(nd);sv(nd);}
+    const cleaned=text.replace(/```vitals-log[\s\S]*?```/g,"").trim()+(count>0?`\n\n✅ Logged ${count} item${count>1?"s":""}!`:"");
+    return{cleaned,count};
+  };
+
+  const sendChat=async()=>{if(!chatInput.trim()||chatLoading)return;
+    const userMsg={role:"user",content:chatInput};
+    const newHistory=[...chatHistory,userMsg];
+    setChatHistory(newHistory);setChatInput("");setChatLoading(true);setErr(null);
+    try{
+      const sys=buildCoachSys()+`\n\nThis is a conversation. Answer the user's specific question using their data. Be concise (1-3 short paragraphs max). If they mention food they ate, exercises, sleep, supplements etc — offer to log it or log it directly if they ask. Always be specific, never generic.`;
+      const messages=newHistory.slice(-10);
+      const txt=await callClaude({system:sys,messages,maxTokens:1000});
+      const{cleaned}=executeLogBlock(txt);
+      setChatHistory([...newHistory,{role:"assistant",content:cleaned}]);
+    }catch(e){setErr(e.message||"Failed.");setChatHistory(newHistory);}
+    setChatLoading(false);
+  };
+
+  const genAnalysis=async()=>{setGenLoading(true);setGenErr(null);try{
+    const sys=buildCoachSys()+`\n\nGive a comprehensive but readable analysis. Structure it naturally — don't use headers like "NUTRITION ANALYSIS" or clinical formatting. Instead, flow through what's going well, what could use attention, and 2-3 specific action items. Keep it to about 300 words. Reference their actual numbers.\n\nCross-reference domains: connect sleep to training performance, nutrition to recovery, hydration to energy, pain to exercise selection. Spot patterns.\n\nEnd with: [MEMORY]: one-sentence key takeaway for next time.`;
+    const payload={recentNutrition:data.nutrition.slice(-28),recentTraining:data.training.slice(-28),recentBody:data.bodyMetrics.slice(-8),recentSleep:data.sleep.slice(-21),recentLifestyle:data.lifestyle.slice(-21)};
+    const txt=await callClaude({system:sys,messages:[{role:"user",content:`Here's my recent data — give me your take:\n${JSON.stringify(payload,null,2)}`}]});
+    const mM=txt.match(/\[MEMORY\]:?\s*(.+)/);const mN=mM?mM[1].trim():txt.slice(0,120);
+    const nd={...data,insights:[...data.insights,{id:uid(),date:td(),text:txt}],aiMemory:[...data.aiMemory,{id:uid(),date:td(),summary:mN}]};setData(nd);sv(nd);
+  }catch(e){setGenErr(e.message||"Failed.");}setGenLoading(false);};
+
+  const generateWorkout=async()=>{
+    setWbLoading(true);setWbErr(null);setWbResult(null);
+    try{
+      const painH=data.painLog.filter(p=>!p.resolved).map(p=>`${p.location}(${p.type},sev:${p.severity}/10)`).join(", ");
+      const prH=data.prs.slice(-15).map(p=>`${p.exercise} ${p.repMax}@${p.weight}lbs`).join(", ");
+      const recentTrain=data.training.slice(-14).map(t=>`${t.date}:${t.name}${t.type==="Strength"?` ${t.sets}x${t.reps}@${t.weight}`:""}`).join("\n");
+      const recentPW=data.postWorkout.slice(-5).map(p=>`RPE:${p.rpe} Energy:${p.energy} Pump:${p.pump} ${p.mood}${p.soreness?` Sore:${p.soreness}`:""}`).join("\n");
+      const sleepAvg=data.sleep.length?(data.sleep.slice(-7).reduce((s,e)=>s+Number(e.hours),0)/Math.min(data.sleep.length,7)).toFixed(1):"unknown";
+      const sys=`You are a knowledgeable, supportive strength & conditioning coach building a workout for ${data.profile.name||"the user"} — ${data.profile.age||""}yo, goals: ${(data.profile.goals||[]).join(", ")||"general fitness"}.
+Be encouraging and specific — use their actual numbers and names. Never use alarming language.
+Recovery score: ${intel.recoveryScore!=null?intel.recoveryScore+"/100 ("+intel.recoveryLabel+")":"unknown"}
+Muscle freshness: ${Object.entries(intel.muscleFreshness).map(([g,v])=>`${g}: ${v.days<999?v.days+"d ago":"not tracked"}`).join(", ")}
+Stale (good to hit): ${intel.staleMuscles.join(", ")||"none"} · Recently trained: ${intel.freshMuscles.join(", ")||"none"}
+Active pains: ${painH||"None"} · Recent PRs: ${prH||"None"}
+Recent training: ${recentTrain||"None"} · Post-WO: ${recentPW||"None"}
+Sleep avg: ${sleepAvg}hrs · Supplements: ${[...new Set(data.supplements.map(s=>s.name))].join(", ")||"None"}
+Focus: ${wbF.focus} · Duration: ${wbF.duration}min · Equipment: ${wbF.equipment} · Intensity: ${wbF.intensity}${wbF.notes?`\nNotes: ${wbF.notes}`:""}
+RULES: Avoid exercises aggravating active pains. Prioritize stale muscle groups. Use specific weights from PR data. Include warm-up, main work, cool-down. Give pre/post nutrition tips.`;
+      const txt=await callClaude({system:sys,messages:[{role:"user",content:"Generate my workout."}],maxTokens:1500});
+      setWbResult(txt);
+    }catch(e){setWbErr(e.message||"Failed.");}setWbLoading(false);
+  };
+
+  const saveWorkout=async()=>{if(!wbResult)return;
+    const entry={id:uid(),date:td(),focus:wbF.focus,duration:wbF.duration,intensity:wbF.intensity,equipment:wbF.equipment,workout:wbResult};
+    const ns=[entry,...saved].slice(0,20);setSaved(ns);
+    try{await setStorageData("vitals-workouts",ns);}catch{}};
+
+  const deleteSaved=async(id)=>{const ns=saved.filter(w=>w.id!==id);setSaved(ns);if(expandedId===id)setExpandedId(null);try{await setStorageData("vitals-workouts",ns);}catch{}};
+
+  const logWorkoutToTraining=async(workoutText,workoutDate)=>{
+    setLogLoading(workoutDate);setLogSuccess(null);
+    try{
+      const txt=await callClaude({system:`Parse this workout plan into individual exercises. Return ONLY a JSON array. For strength include sets, reps, weight. For cardio include duration.
+Format: [{"name":"Exercise","type":"Strength"|"Cardio"|"Plyometrics"|"Mobility","sets":"N","reps":"N","weight":"N","duration":"N","notes":""}]`,
+        messages:[{role:"user",content:`Parse into exercises:\n${workoutText}`}]});
+      const exercises=JSON.parse(txt.replace(/```json|```/g,"").trim());
+      if(!Array.isArray(exercises)||exercises.length===0)throw new Error("No exercises parsed");
+      const entries=exercises.map(ex=>({id:uid(),type:ex.type||"Strength",name:ex.name,sets:String(ex.sets||""),reps:String(ex.reps||""),weight:String(ex.weight||""),duration:String(ex.duration||""),distance:"",notes:ex.notes||"",date:workoutDate||td()}));
+      const nd={...data,training:[...data.training,...entries]};setData(nd);sv(nd);
+      setLogSuccess(workoutDate);setTimeout(()=>setLogSuccess(null),3000);
+    }catch(e){setWbErr("Failed to parse workout: "+(e.message||""));}setLogLoading(null);
+  };
+
+  const tabList=[["chat","💬 Chat"],["gen","📊 Analyze"],["build","⚡ Build"],["hist","History"],["mem","Memory"]];
+
+  return <div>
+    {/* Stats bar */}
+    <div style={{display:"flex",gap:8,marginBottom:14}}>
+      {intel.recoveryScore!=null&&<Glass style={{flex:1,padding:"10px 14px",borderRadius:14,textAlign:"center"}}>
+        <div style={{fontSize:9,color:G.dim,fontWeight:700}}>Recovery</div>
+        <div style={{fontSize:22,fontWeight:800,color:intel.recoveryColor}}>{intel.recoveryScore}</div>
+      </Glass>}
+      <Glass style={{flex:1,padding:"10px 14px",borderRadius:14,textAlign:"center"}}><div style={{fontSize:9,color:G.dim,fontWeight:700}}>Analyses</div><div style={{fontSize:22,fontWeight:800,color:G.moss}}>{data.insights.length}</div></Glass>
+      <Glass style={{flex:1,padding:"10px 14px",borderRadius:14,textAlign:"center"}}><div style={{fontSize:9,color:G.dim,fontWeight:700}}>Memory</div><div style={{fontSize:22,fontWeight:800,color:G.purple}}>{data.aiMemory.length}</div></Glass>
+    </div>
+
+    {/* Tabs */}
+    <div style={{display:"flex",gap:6,marginBottom:16,overflowX:"auto",paddingBottom:2}}>
+      {tabList.map(([k,l])=><Btn key={k} onClick={()=>setTab(k)} v={tab===k?"primary":"secondary"} sx={{flexShrink:0,padding:"9px 14px",fontSize:12}}>{l}</Btn>)}
+    </div>
+
+    {!hasApiKey()&&<Glass style={{marginBottom:14,padding:14,borderRadius:16}}><div style={{fontSize:13,color:G.orange,fontWeight:600}}>Add your API key in More → Settings to use AI features</div></Glass>}
+
+    {/* Chat */}
+    {tab==="chat"&&<div>
+      <Glass style={{borderRadius:20,padding:0,overflow:"hidden",marginBottom:12}}>
+        <div style={{maxHeight:360,overflowY:"auto",padding:"16px 14px 8px"}}>
+          {chatHistory.length===0&&<div style={{textAlign:"center",padding:"24px 12px",color:G.dim}}>
+            <div style={{fontSize:28,marginBottom:10}}>💬</div>
+            <div style={{fontSize:14,fontWeight:600,color:G.sub,marginBottom:6}}>Ask your coach anything</div>
+            <div style={{fontSize:12,lineHeight:1.5}}>Try: "Should I train today?" or "What should I eat for dinner?" or "Why am I so tired lately?"</div>
+          </div>}
+          {chatHistory.map((msg,i)=><div key={i} style={{display:"flex",justifyContent:msg.role==="user"?"flex-end":"flex-start",marginBottom:10}}>
+            <div style={{maxWidth:"85%",padding:"10px 14px",borderRadius:msg.role==="user"?"16px 16px 4px 16px":"16px 16px 16px 4px",
+              background:msg.role==="user"?`linear-gradient(135deg,${G.gMoss[0]},${G.gMoss[1]})`:G.glass2,
+              color:msg.role==="user"?"#fff":G.sub,fontSize:13,lineHeight:1.6,whiteSpace:"pre-wrap"}}>
+              {msg.content}
+            </div>
+          </div>)}
+          {chatLoading&&<div style={{display:"flex",justifyContent:"flex-start",marginBottom:10}}>
+            <div style={{padding:"10px 14px",borderRadius:"16px 16px 16px 4px",background:G.glass2,color:G.dim,fontSize:13}}>Thinking...</div>
+          </div>}
+          <div ref={chatEndRef}/>
+        </div>
+        <div style={{display:"flex",gap:8,padding:"8px 12px 12px",borderTop:`1px solid ${G.glassBorder}`}}>
+          <input value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();}}}
+            placeholder="Ask your coach..." style={{flex:1,background:G.glass,border:`1px solid ${G.glassBorder}`,borderRadius:20,padding:"10px 16px",color:G.txt,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+          <button onClick={sendChat} disabled={chatLoading||!chatInput.trim()} style={{background:`linear-gradient(135deg,${G.gMoss[0]},${G.gMoss[1]})`,border:"none",borderRadius:20,width:44,height:44,color:"#fff",fontSize:18,cursor:"pointer",opacity:(chatLoading||!chatInput.trim())?.5:1,display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
+        </div>
+      </Glass>
+      {err&&<div style={{color:G.red,fontSize:12,marginBottom:8}}>{err}</div>}
+      <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+        {["Should I train today?","I had chicken rice and avocado for lunch","What should I eat for dinner?","Build me a push workout","Log 7.5 hours of sleep, good quality","How's my recovery looking?"].map((q,i)=>
+          <button key={i} onClick={()=>setChatInput(q)} style={{background:G.glass,border:`1px solid ${G.glassBorder}`,borderRadius:20,padding:"6px 12px",color:G.sub,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>{q}</button>)}
+      </div>
+    </div>}
+
+    {/* Full Analysis */}
+    {tab==="gen"&&<div>
+      <div style={{textAlign:"center",marginBottom:18}}>
+        <Btn onClick={genAnalysis} disabled={genLoading} sx={{padding:"14px 32px",fontSize:15,borderRadius:16}}>{genLoading?"Analyzing...":"⬡ Full Analysis"}</Btn>
+        {genErr&&<div style={{color:G.red,fontSize:12,marginTop:6}}>{genErr}</div>}
+      </div>
+      {data.insights.length>0&&<Glass style={{borderRadius:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+          <span style={{fontSize:11,fontWeight:700,color:G.moss}}>⬡ Latest</span>
+          <span style={{fontSize:11,color:G.dim}}>{data.insights[data.insights.length-1].date}</span>
+        </div>
+        <div style={{fontSize:13,color:G.sub,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{data.insights[data.insights.length-1].text}</div>
+      </Glass>}
+    </div>}
+
+    {/* Workout Builder */}
+    {tab==="build"&&<div>
+      <Glass glow={`radial-gradient(circle,${G.amber}20,transparent 70%)`} style={{marginBottom:16,borderRadius:24,padding:20}}>
+        <div style={{fontSize:14,color:G.txt,fontWeight:700,marginBottom:4}}>AI Workout Builder</div>
+        <div style={{fontSize:12,color:G.dim,lineHeight:1.5,marginBottom:14}}>Builds workouts using your PRs, pain points, recovery data, and muscle freshness.</div>
+        <Fld label="Focus" opts={["Full Body","Upper Body","Lower Body","Push","Pull","Legs","Chest & Triceps","Back & Biceps","Shoulders","Arms","Core","Explosive/Plyo","Active Recovery"]} value={wbF.focus} set={v=>setWbF({...wbF,focus:v})}/>
+        <div style={{display:"flex",gap:8}}>
+          <div style={{flex:1}}><Fld label="Duration (min)" opts={["30","45","60","75","90"]} value={wbF.duration} set={v=>setWbF({...wbF,duration:v})}/></div>
+          <div style={{flex:1}}><Fld label="Intensity" opts={["Light","Moderate","High","Max Effort"]} value={wbF.intensity} set={v=>setWbF({...wbF,intensity:v})}/></div>
+        </div>
+        <Fld label="Equipment" opts={["Full Gym","Dumbbells Only","Barbell & Rack","Bodyweight","Home Gym","Cables & Machines"]} value={wbF.equipment} set={v=>setWbF({...wbF,equipment:v})}/>
+        <Fld label="Notes (optional)" type="textarea" value={wbF.notes} set={v=>setWbF({...wbF,notes:v})} ph="e.g. Want to hit heavy squats today, feeling good"/>
+        <Btn onClick={generateWorkout} disabled={wbLoading} sx={{width:"100%",padding:14,fontSize:15}}>{wbLoading?"Building workout...":"⚡ Generate Workout"}</Btn>
+      </Glass>
+      {wbErr&&<Glass style={{marginBottom:14,borderRadius:16}}><div style={{color:G.red,fontSize:13}}>{wbErr}</div></Glass>}
+      {wbResult&&<Glass style={{borderRadius:20,marginBottom:14}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div><div style={{fontSize:14,fontWeight:700,color:G.txt}}>{wbF.focus}</div><div style={{fontSize:11,color:G.dim}}>{wbF.duration}min · {wbF.intensity} · {wbF.equipment}</div></div>
+          <Btn onClick={saveWorkout} v="secondary" sx={{fontSize:11,padding:"6px 12px"}}>💾 Save</Btn>
+        </div>
+        <div style={{fontSize:13,color:G.sub,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{wbResult}</div>
+        <div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${G.glassBorder}`}}>
+          <Btn onClick={()=>logWorkoutToTraining(wbResult,td())} disabled={logLoading===td()} sx={{width:"100%",padding:12}} v="primary">
+            {logLoading===td()?"⏳ Parsing...":logSuccess===td()?"✓ Logged to Training!":"📋 Log All Exercises to Training"}
+          </Btn>
+        </div>
+      </Glass>}
+      {saved.length>0&&<div>
+        <div style={{fontSize:11,fontWeight:700,color:G.dim,letterSpacing:1,marginBottom:8}}>SAVED WORKOUTS ({saved.length})</div>
+        {saved.map(w=>{const isExp=expandedId===w.id;return <Glass key={w.id} style={{marginBottom:8,borderRadius:16,cursor:"pointer"}} onClick={()=>setExpandedId(isExp?null:w.id)}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <span style={{fontSize:13,fontWeight:700,color:G.txt}}>{w.focus}</span>
+                <span style={{fontSize:10,color:G.dim,background:G.glass2,padding:"2px 7px",borderRadius:8}}>{w.duration}min</span>
+                {w.intensity&&<span style={{fontSize:10,color:G.amber,background:`${G.amber}15`,padding:"2px 7px",borderRadius:8}}>{w.intensity}</span>}
+              </div>
+              <div style={{fontSize:11,color:G.dim,marginTop:3}}>{w.date}{w.equipment?` · ${w.equipment}`:""}</div>
+            </div>
+            <span style={{fontSize:14,color:G.dim,transition:"transform .2s",transform:isExp?"rotate(180deg)":"none"}}>▾</span>
+          </div>
+          {isExp&&<div onClick={e=>e.stopPropagation()}>
+            <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${G.glassBorder}`,fontSize:13,color:G.sub,lineHeight:1.7,whiteSpace:"pre-wrap",maxHeight:400,overflow:"auto"}}>{w.workout}</div>
+            <div style={{display:"flex",gap:8,marginTop:10,paddingTop:10,borderTop:`1px solid ${G.glassBorder}`}}>
+              <Btn onClick={()=>logWorkoutToTraining(w.workout,w.date)} disabled={logLoading===w.date} sx={{flex:1,padding:10,fontSize:12}} v="primary">
+                {logLoading===w.date?"Parsing...":logSuccess===w.date?"✓ Logged!":"📋 Log to Training"}
+              </Btn>
+              <Btn onClick={()=>deleteSaved(w.id)} v="danger" sx={{padding:"10px 14px",fontSize:12}}>🗑</Btn>
+            </div>
+          </div>}
+        </Glass>;})}
+      </div>}
+    </div>}
+
+    {/* History */}
+    {tab==="hist"&&<div>{data.insights.length===0?<div style={{textAlign:"center",padding:28,color:G.dim}}>No analyses yet</div>:data.insights.slice().reverse().map(i=><Glass key={i.id} style={{marginBottom:10,borderRadius:16}}><div style={{fontSize:11,color:G.dim,marginBottom:6}}>{i.date}</div><div style={{fontSize:13,color:G.sub,lineHeight:1.5,whiteSpace:"pre-wrap"}}>{i.text}</div></Glass>)}</div>}
+
+    {/* Memory */}
+    {tab==="mem"&&<div>
+      {data.aiMemory.length===0?<div style={{textAlign:"center",padding:28,color:G.dim}}>No memory yet</div>:data.aiMemory.slice().reverse().map(m=><Glass key={m.id} style={{marginBottom:6,borderRadius:14}}><div style={{fontSize:11,color:G.dim}}>{m.date}</div><div style={{fontSize:13,color:G.sub,marginTop:2}}>{m.summary}</div></Glass>)}
+    </div>}
+  </div>;
+}
+// ─── MORE PAGE ───
+function MorePage({data,setData}){
+  const [open,setOpen]=useState({profile:false,targets:false,apikey:false,data:false,feedback:false,stacks:false,pain:false,prs:false});
+  const tog=(k)=>setOpen(o=>({...o,[k]:!o[k]}));
+  const [key,setKey]=useState(getApiKey());const [keySaved,setKeySaved]=useState(false);const impRef=useRef();
+  const [pf,setPf]=useState({...data.profile});
+  const [fbF,setFbF]=useState({type:"Bug",message:"",name:"",rating:"5"});const [fbSent,setFbSent]=useState(false);const [fbSending,setFbSending]=useState(false);
+
+  useEffect(()=>{setPf({...data.profile});},[data.profile]);
+
+  const saveKey=()=>{setApiKey(key);setKeySaved(true);setTimeout(()=>setKeySaved(false),2000);};
+  const saveProfile=()=>{const nd={...data,profile:{...pf,targets:{calories:Number(pf.targets?.calories)||2800,protein:Number(pf.targets?.protein)||180,water:Number(pf.targets?.water)||100}}};setData(nd);sv(nd);};
+  const exp=()=>{const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`vitals-${td()}.json`;a.click();};
+  const imp=async(file)=>{try{const t=await file.text();const d=JSON.parse(t);const nd={...DEF,...d,profile:{...DEF.profile,...d?.profile,targets:{...DEF.profile.targets,...d?.profile?.targets}}};setData(nd);sv(nd);alert("Imported!");}catch(e){alert("Error: "+e.message);}};
+  const sendFb=async()=>{if(!fbF.message.trim())return;setFbSending(true);
+    const entry={...fbF,id:uid(),date:td(),time:new Date().toTimeString().slice(0,5),device:navigator.userAgent.slice(0,80)};
+    const nd={...data,feedback:[...(data.feedback||[]),entry]};setData(nd);sv(nd);
+    setFbSent(true);setFbSending(false);setFbF({type:"Bug",message:"",name:"",rating:"5"});setTimeout(()=>setFbSent(false),3000);};
+  const deleteStack=(id)=>{const nd={...data,suppStacks:(data.suppStacks||[]).filter(s=>s.id!==id)};setData(nd);sv(nd);};
+  const resPain=(id)=>{const nd={...data,painLog:data.painLog.map(p=>p.id===id?{...p,resolved:true,resolvedDate:td()}:p)};setData(nd);sv(nd);};
+  const delPain=(id)=>{const nd={...data,painLog:data.painLog.filter(p=>p.id!==id)};setData(nd);sv(nd);};
+  const delPR=(id)=>{const nd={...data,prs:data.prs.filter(p=>p.id!==id)};setData(nd);sv(nd);};
+
+  const GOAL_OPTS=["Muscle Mass","Strength","Explosiveness","Fat Loss","Endurance","Flexibility","General Health","Athletic Performance"];
+  const p=data.profile;
+
+  const Sect=({id,label,icon,children})=><div style={{marginBottom:8}}>
+    <button onClick={()=>tog(id)} style={{width:"100%",background:G.glass,border:`1px solid ${G.glassBorder}`,borderRadius:open[id]?`16px 16px 0 0`:16,padding:"14px 16px",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"space-between",backdropFilter:G.blur}}>
+      <span style={{fontSize:14,fontWeight:700,color:G.txt}}>{icon} {label}</span>
+      <span style={{fontSize:12,color:G.dim,transition:"transform .2s",transform:open[id]?"rotate(180deg)":"none"}}>▾</span>
+    </button>
+    {open[id]&&<div style={{background:G.glass,border:`1px solid ${G.glassBorder}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"16px",backdropFilter:G.blur}}>{children}</div>}
+  </div>;
+
+  return <div>
+    <div style={{fontSize:22,fontWeight:700,color:G.txt,marginBottom:18}}>More</div>
+
+    <Sect id="profile" label="Profile & Goals" icon="👤">
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:13,marginBottom:14}}>
+        <div><span style={{color:G.dim}}>Name:</span> <span style={{fontWeight:600}}>{p.name||"Not set"}</span></div>
+        <div><span style={{color:G.dim}}>Age:</span> <span style={{fontWeight:600}}>{p.age||"—"}</span></div>
+        <div><span style={{color:G.dim}}>Restrictions:</span> <span style={{fontWeight:600}}>{p.allergies||"None"}</span></div>
+        <div><span style={{color:G.dim}}>Units:</span> <span style={{fontWeight:600}}>{p.units||"imperial"}</span></div>
+      </div>
+      {p.goals?.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:14}}>
+        {p.goals.map((g,i)=><span key={i} style={{background:`${G.moss}15`,color:G.moss,borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:600}}>{g}</span>)}
+      </div>}
+      <Fld label="Name" value={pf.name||""} set={v=>setPf({...pf,name:v})} ph="Your name"/>
+      <Fld label="Age" type="number" value={pf.age||""} set={v=>setPf({...pf,age:v})}/>
+      <Fld label="Allergies / Dietary Restrictions" value={pf.allergies||""} set={v=>setPf({...pf,allergies:v})} ph="e.g. Dairy, Gluten, Vegan"/>
+      <Fld label="Units" opts={["imperial","metric"]} value={pf.units||"imperial"} set={v=>setPf({...pf,units:v})}/>
+      <div style={{fontSize:13,fontWeight:600,color:G.sub,marginBottom:8}}>Goals</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
+        {GOAL_OPTS.map(g=>{const active=(pf.goals||[]).includes(g);return <button key={g} onClick={()=>{const goals=active?(pf.goals||[]).filter(x=>x!==g):[...(pf.goals||[]),g];setPf({...pf,goals});}}
+          style={{background:active?`${G.moss}20`:G.glass,border:`1px solid ${active?G.moss+"40":G.glassBorder}`,borderRadius:20,padding:"6px 14px",color:active?G.moss:G.dim,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>{active?"✓ ":""}{g}</button>;})}
+      </div>
+      <Btn onClick={saveProfile} sx={{width:"100%"}}>Save Profile</Btn>
+    </Sect>
+
+    <Sect id="targets" label="Daily Targets" icon="🎯">
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
+        {[{l:"Calories",v:p.targets?.calories||2800,c:G.moss},{l:"Protein",v:(p.targets?.protein||180)+"g",c:G.orange},{l:"Water",v:(p.targets?.water||100)+"oz",c:G.teal}].map((t,i)=>
+          <div key={i} style={{textAlign:"center",background:G.glass2,borderRadius:12,padding:"10px 6px"}}>
+            <div style={{fontSize:20,fontWeight:800,color:t.c}}>{t.v}</div>
+            <div style={{fontSize:10,color:G.dim,fontWeight:600}}>{t.l}</div>
+          </div>)}
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <div style={{flex:1}}><Fld label="Calories" type="number" value={pf.targets?.calories||""} set={v=>setPf({...pf,targets:{...pf.targets,calories:v}})}/></div>
+        <div style={{flex:1}}><Fld label="Protein (g)" type="number" value={pf.targets?.protein||""} set={v=>setPf({...pf,targets:{...pf.targets,protein:v}})}/></div>
+      </div>
+      <Fld label="Water (oz)" type="number" value={pf.targets?.water||""} set={v=>setPf({...pf,targets:{...pf.targets,water:v}})}/>
+      <Btn onClick={saveProfile} sx={{width:"100%"}}>Save Targets</Btn>
+    </Sect>
+
+    <Sect id="apikey" label="API Key" icon="🔑">
+      <div style={{fontSize:12,color:G.dim,marginBottom:10}}>Required for AI features. Stored on device only.</div>
+      <Fld type="password" value={key} set={setKey} ph="sk-ant-..."/>
+      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <Btn onClick={saveKey} sx={{flex:1}}>Save</Btn>
+        {keySaved&&<span style={{color:G.moss,fontSize:13,fontWeight:600}}>✓ Saved</span>}
+      </div>
+    </Sect>
+
+    <Sect id="stacks" label="Supplement Stacks" icon="💊">
+      {(data.suppStacks||[]).length===0?<div style={{color:G.dim,fontSize:13}}>No stacks saved. Log supplements and save them as a stack from the Log tab.</div>:
+        (data.suppStacks||[]).map(stack=><Glass key={stack.id} style={{marginBottom:8,borderRadius:14,padding:"10px 14px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+            <span style={{fontSize:14,fontWeight:700,color:G.purple}}>{stack.name}</span>
+            <button onClick={()=>deleteStack(stack.id)} style={{background:G.glass2,border:"none",width:26,height:26,borderRadius:13,color:G.dim,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+          </div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+            {stack.items.map((item,i)=><span key={i} style={{background:`${G.purple}12`,color:G.sub,borderRadius:8,padding:"3px 8px",fontSize:11}}>{item.name}{item.dosage?` ${item.dosage}`:""}</span>)}
+          </div>
+        </Glass>)}
+    </Sect>
+
+    <Sect id="pain" label="Pain Log" icon="🩹">
+      {data.painLog.length===0?<div style={{color:G.dim,fontSize:13}}>No pain entries.</div>:<>
+        {data.painLog.filter(p=>!p.resolved).length>0&&<div style={{marginBottom:10}}>
+          <div style={{fontSize:10,fontWeight:700,color:G.dim,marginBottom:6}}>ACTIVE</div>
+          {data.painLog.filter(p=>!p.resolved).map(p=><Glass key={p.id} style={{marginBottom:6,padding:"10px 14px",borderRadius:14,display:"flex",alignItems:"center"}}>
+            <div style={{flex:1}}><div style={{fontSize:13,color:G.red,fontWeight:600}}>{p.location} — {p.type}</div><div style={{fontSize:11,color:G.dim}}>{p.date} · Sev:{p.severity}/10</div></div>
+            <div style={{display:"flex",gap:6}}>
+              <Btn onClick={()=>resPain(p.id)} v="ghost" sx={{fontSize:11,padding:"4px 8px",color:G.moss}}>✓ Resolve</Btn>
+              <button onClick={()=>delPain(p.id)} style={{background:G.glass2,border:"none",width:26,height:26,borderRadius:13,color:G.dim,cursor:"pointer",fontSize:12}}>✕</button>
+            </div>
+          </Glass>)}
+        </div>}
+        {data.painLog.filter(p=>p.resolved).length>0&&<div>
+          <div style={{fontSize:10,fontWeight:700,color:G.dim,marginBottom:6}}>RESOLVED</div>
+          {data.painLog.filter(p=>p.resolved).slice().reverse().slice(0,5).map(p=><EI key={p.id} primary={`${p.location} — ${p.type}`} secondary={`${p.date} · Sev:${p.severity}/10 · resolved`} color={G.moss} onDelete={()=>delPain(p.id)}/>)}
+        </div>}
+      </>}
+    </Sect>
+
+    <Sect id="prs" label="Personal Records" icon="🏆">
+      {data.prs.length===0?<div style={{color:G.dim,fontSize:13}}>No PRs yet. Log exercises with sets/reps/weight to auto-detect PRs.</div>:
+        data.prs.slice().reverse().map(p=><EI key={p.id} primary={`${p.exercise} ${p.repMax}`} secondary={p.date} tertiary={`${p.weight}lbs`} color={G.moss} onDelete={()=>delPR(p.id)}/>)}
+    </Sect>
+
+    <Sect id="feedback" label="Feedback" icon="💬">
+      <Fld label="Your Name (optional)" value={fbF.name} set={v=>setFbF({...fbF,name:v})} ph="Anonymous"/>
+      <Fld label="Type" opts={["Bug","Feature Request","UI/Design","Performance","Other"]} value={fbF.type} set={v=>setFbF({...fbF,type:v})}/>
+      <Slider label="Overall Rating" value={fbF.rating} set={v=>setFbF({...fbF,rating:v})} min={1} max={10} color={Number(fbF.rating)>=7?G.moss:Number(fbF.rating)>=4?G.orange:G.red}/>
+      <Fld label="Message" type="textarea" value={fbF.message} set={v=>setFbF({...fbF,message:v})} ph="What happened? What would you like to see?"/>
+      <Btn onClick={sendFb} disabled={fbSending||!fbF.message.trim()} sx={{width:"100%",padding:13}}>
+        {fbSending?"Sending...":fbSent?"✓ Sent! Thank you":"Send Feedback"}
+      </Btn>
+    </Sect>
+
+    <Sect id="data" label="Data & Storage" icon="💾">
+      <div style={{display:"flex",gap:8,marginBottom:10}}>
+        <Btn onClick={exp} v="secondary" sx={{flex:1}}>📤 Export</Btn>
+        <Btn onClick={()=>impRef.current?.click()} v="secondary" sx={{flex:1}}>📥 Import</Btn>
+        <input ref={impRef} type="file" accept=".json" style={{display:"none"}} onChange={e=>{if(e.target.files[0])imp(e.target.files[0]);}}/>
+      </div>
+      <Btn onClick={()=>{if(confirm("Delete ALL data? Cannot be undone.")){setData(DEF);sv(DEF);}}} v="danger" sx={{width:"100%"}}>Clear All Data</Btn>
+      <div style={{marginTop:14,fontSize:11,color:G.dim,lineHeight:1.6}}>Vitals v9 · IndexedDB · Claude AI · Data stored on device only.</div>
+    </Sect>
+  </div>;
+}
 // ─── TOAST ───
 function Toast({message,color,onDone}){
   useEffect(()=>{const t=setTimeout(onDone,2200);return()=>clearTimeout(t);},[onDone]);
@@ -1289,10 +2018,20 @@ export default function App(){
   };
 
   if(!ok)return <div style={{background:G.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:G.moss,fontSize:24,fontWeight:800}}>Vitals</div></div>;
-  const pages={home:<HomePage data={data} go={setPage} onQuickLog={quickLog}/>,nutr:<NutrPage data={data} setData={setData}/>,train:<TrainPage data={data} setData={setData}/>,hydra:<HydraPage data={data} setData={setData}/>,supps:<SuppsPage data={data} setData={setData}/>,sleep:<SleepPage data={data} setData={setData}/>,life:<LifePage data={data} setData={setData}/>,health:<HealthPage data={data} setData={setData}/>,body:<BodyPage data={data} setData={setData}/>,ai:<AIPage data={data} setData={setData}/>,workout:<WorkoutPage data={data} setData={setData}/>,feedback:<FeedbackPage data={data} setData={setData}/>,settings:<SettingsPage data={data} setData={setData}/>};
+  const pages={
+    home:<HomePage data={data} go={setPage} onQuickLog={quickLog}/>,
+    log:<LogPage data={data} setData={setData}/>,
+    coach:<CoachPage data={data} setData={setData}/>,
+    more:<MorePage data={data} setData={setData}/>,
+    // legacy routes (still navigable from HomePage quick-links)
+    nutr:<NutrPage data={data} setData={setData}/>,train:<TrainPage data={data} setData={setData}/>,hydra:<HydraPage data={data} setData={setData}/>,supps:<SuppsPage data={data} setData={setData}/>,sleep:<SleepPage data={data} setData={setData}/>,life:<LifePage data={data} setData={setData}/>,health:<HealthPage data={data} setData={setData}/>,body:<BodyPage data={data} setData={setData}/>,ai:<AIPage data={data} setData={setData}/>,workout:<WorkoutPage data={data} setData={setData}/>,feedback:<FeedbackPage data={data} setData={setData}/>,settings:<SettingsPage data={data} setData={setData}/>
+  };
+  const tabTitle={home:"Vitals",log:"Log",coach:"Coach",more:"More"};
+  const headerTitle=tabTitle[page]||"Vitals";
   return <div style={{background:G.bg,minHeight:"100vh",fontFamily:"'Inter',sans-serif",color:G.txt,maxWidth:480,margin:"0 auto",position:"relative",paddingBottom:80}}>
-    <div style={{padding:"16px 20px 12px",display:"flex",alignItems:"center",justifyContent:"center",position:"sticky",top:0,zIndex:100,background:`${G.bg}dd`,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)"}}>
-      <div style={{fontSize:16,fontWeight:800,color:G.txt,letterSpacing:-.5}}>Vitals</div>
+    <div style={{padding:"16px 20px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,background:`${G.bg}dd`,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)"}}>
+      <div style={{fontSize:18,fontWeight:800,color:G.txt,letterSpacing:-.5}}>{headerTitle}</div>
+      {page==="home"&&<Btn onClick={()=>setPage("log")} v="primary" sx={{fontSize:12,padding:"6px 16px",borderRadius:20}}>+ Log</Btn>}
     </div>
     <div style={{padding:"12px 20px 40px"}}>{pages[page]}</div>
     <BottomNav current={page} onNav={setPage}/>
