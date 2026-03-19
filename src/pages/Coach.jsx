@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "../ThemeContext.jsx";
 import { td, uid, sv, haptic } from "../helpers.js";
+import { getData, setData as setStorageData } from "../storage.js";
 import { useVitalsIntel } from "../intel.js";
 import { generateBriefing, generateSmartActions, generateStatLine } from "../briefing.js";
 import { Glass, Btn, Ring, Modal } from "../components/Glass.jsx";
@@ -28,6 +29,16 @@ export default function Coach({ data, setData, go }) {
   const chatEndRef = useRef(null);
   const msgsRef = useRef(null);
   const inputRef = useRef(null);
+
+  // Load chat history from IndexedDB on mount
+  useEffect(() => {
+    getData("vitals-chat").then(h => { if (Array.isArray(h) && h.length) setChatHistory(h); }).catch(() => {});
+  }, []);
+
+  // Persist chat history whenever it changes
+  useEffect(() => {
+    if (chatHistory.length > 0) setStorageData("vitals-chat", chatHistory).catch(() => {});
+  }, [chatHistory]);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [chatHistory, chatLoading]);
 
@@ -368,6 +379,15 @@ Only include relevant types. For meals, estimate accurate macros using USDA data
       )}
 
       {/* ── Input Area (pinned at bottom) ── */}
+      {chatHistory.length > 0 && (
+        <div style={{ display: "flex", justifyContent: "flex-end", paddingBottom: 4, flexShrink: 0 }}>
+          <button onClick={() => { setChatHistory([]); setStorageData("vitals-chat", []); }}
+            style={{ background: "none", border: "none", fontSize: 11, color: G.dim, cursor: "pointer", fontFamily: "inherit", padding: "2px 4px" }}>
+            Clear chat
+          </button>
+        </div>
+      )}
+
       <div style={{
         display: "flex", gap: 8, padding: "10px 0 2px",
         borderTop: `1px solid ${G.glassBorder}`, flexShrink: 0,

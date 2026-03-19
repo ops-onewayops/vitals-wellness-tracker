@@ -3,11 +3,11 @@
 import { useTheme } from "../ThemeContext.jsx";
 import { useVitalsIntel } from "../intel.js";
 import { generateBriefing } from "../briefing.js";
-import { td, hr } from "../helpers.js";
+import { td, hr, sv } from "../helpers.js";
 import { Glass, GradCard, Ring, EI, Btn } from "../components/Glass.jsx";
 import { motion } from "framer-motion";
 
-export default function Data({ data, go, onQuickLog }) {
+export default function Data({ data, setData, go, onQuickLog }) {
   const { theme: G } = useTheme();
   const intel = useVitalsIntel(data);
   const briefingText = generateBriefing(intel, data);
@@ -22,6 +22,11 @@ export default function Data({ data, go, onQuickLog }) {
   const ap = intel.activePains.length;
   const name = p.name || "";
   const needsSetup = !p.name;
+
+  const deleteEntry = (type, id) => {
+    const nd = { ...data, [type]: data[type].filter(x => x.id !== id) };
+    setData(nd); sv(nd);
+  };
 
   // Build a relevant observation for coach teaser
   const coachObs = intel.protDeficit != null && intel.protDeficit > 30
@@ -172,15 +177,15 @@ export default function Data({ data, go, onQuickLog }) {
       {(() => {
         const today = td();
         const feed = [];
-        data.nutrition.filter(n => n.date === today).forEach(n => feed.push({ k: n.id, label: n.food, sub: `${n.meal} · ${n.calories || 0} cal`, icon: "🍽️", color: G.moss }));
-        data.training.filter(t => t.date === today).forEach(t => feed.push({ k: t.id, label: t.name, sub: t.type === "Strength" ? `${t.sets || ""}×${t.reps || ""}@${t.weight || ""}lbs` : `${t.type} · ${t.duration || ""}min`, icon: "💪", color: G.orange }));
-        data.hydration.filter(h => h.date === today).forEach(h => feed.push({ k: h.id, label: `${h.oz}oz ${h.type || "Water"}`, sub: h.time || "", icon: "💧", color: G.teal }));
-        data.supplements.filter(s => s.date === today).forEach(s => feed.push({ k: s.id, label: s.name, sub: `${s.timing}${s.dosage ? ` · ${s.dosage}` : ""}`, icon: "💊", color: G.purple }));
-        data.sleep.filter(s => s.date === today).forEach(s => feed.push({ k: s.id, label: `${s.hours}hrs sleep`, sub: s.quality, icon: "🌙", color: G.indigo }));
-        data.lifestyle.filter(l => l.date === today).forEach(l => feed.push({ k: l.id, label: `Energy ${l.energy}/10 · Stress ${l.stress}/10`, sub: l.mood, icon: "🧘", color: G.pink }));
-        data.bodyMetrics.filter(b => b.date === today).forEach(b => feed.push({ k: b.id, label: `${b.weight || "?"}lbs${b.bodyFat ? ` · ${b.bodyFat}% BF` : ""}`, sub: "Body", icon: "📏", color: G.blue }));
-        data.painLog.filter(p => p.date === today).forEach(p => feed.push({ k: p.id, label: `${p.location} pain`, sub: `${p.type} · ${p.severity}/10`, icon: "🩹", color: G.red }));
-        data.postWorkout.filter(p => p.date === today).forEach(p => feed.push({ k: p.id, label: `Post-WO: RPE ${p.rpe}/10`, sub: `${p.mood} · Energy ${p.energy}/10`, icon: "⚡", color: G.amber }));
+        data.nutrition.filter(n => n.date === today).forEach(n => feed.push({ k: n.id, type: "nutrition", label: n.food, sub: `${n.meal} · ${n.calories || 0} cal`, icon: "🍽️", color: G.moss }));
+        data.training.filter(t => t.date === today).forEach(t => feed.push({ k: t.id, type: "training", label: t.name, sub: t.type === "Strength" ? `${t.sets || ""}×${t.reps || ""}@${t.weight || ""}lbs` : `${t.type} · ${t.duration || ""}min`, icon: "💪", color: G.orange }));
+        data.hydration.filter(h => h.date === today).forEach(h => feed.push({ k: h.id, type: "hydration", label: `${h.oz}oz ${h.type || "Water"}`, sub: h.time || "", icon: "💧", color: G.teal }));
+        data.supplements.filter(s => s.date === today).forEach(s => feed.push({ k: s.id, type: "supplements", label: s.name, sub: `${s.timing}${s.dosage ? ` · ${s.dosage}` : ""}`, icon: "💊", color: G.purple }));
+        data.sleep.filter(s => s.date === today).forEach(s => feed.push({ k: s.id, type: "sleep", label: `${s.hours}hrs sleep`, sub: s.quality, icon: "🌙", color: G.indigo }));
+        data.lifestyle.filter(l => l.date === today).forEach(l => feed.push({ k: l.id, type: "lifestyle", label: `Energy ${l.energy}/10 · Stress ${l.stress}/10`, sub: l.mood, icon: "🧘", color: G.pink }));
+        data.bodyMetrics.filter(b => b.date === today).forEach(b => feed.push({ k: b.id, type: "bodyMetrics", label: `${b.weight || "?"}lbs${b.bodyFat ? ` · ${b.bodyFat}% BF` : ""}`, sub: "Body", icon: "📏", color: G.blue }));
+        data.painLog.filter(p => p.date === today).forEach(p => feed.push({ k: p.id, type: "painLog", label: `${p.location} pain`, sub: `${p.type} · ${p.severity}/10`, icon: "🩹", color: G.red }));
+        data.postWorkout.filter(p => p.date === today).forEach(p => feed.push({ k: p.id, type: "postWorkout", label: `Post-WO: RPE ${p.rpe}/10`, sub: `${p.mood} · Energy ${p.energy}/10`, icon: "⚡", color: G.amber }));
         if (feed.length === 0) return <Glass style={{ marginBottom: 16, borderRadius: 20, padding: 20, textAlign: "center" }} onClick={() => go("log")}>
           <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
           <div style={{ fontSize: 13, fontWeight: 600, color: G.sub, marginBottom: 4 }}>Your day is a blank canvas</div>
@@ -189,7 +194,7 @@ export default function Data({ data, go, onQuickLog }) {
         return <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: G.dim, letterSpacing: 1, marginBottom: 8 }}>TODAY'S LOG</div>
           {feed.map((f, i) => <motion.div key={f.k + i} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
-            <EI primary={f.label} secondary={f.sub} color={f.color} />
+            <EI primary={f.label} secondary={f.sub} color={f.color} onDelete={() => deleteEntry(f.type, f.k)} />
           </motion.div>)}
           <Btn onClick={() => go("log")} v="ghost" sx={{ fontSize: 12, padding: "6px 0", color: G.dim, marginTop: 4 }}>+ Log more →</Btn>
         </div>;

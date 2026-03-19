@@ -9,6 +9,7 @@ import Data from "./pages/Data.jsx";
 import Log from "./pages/Log.jsx";
 import Coach from "./pages/Coach.jsx";
 import Settings from "./pages/Settings.jsx";
+import Onboarding from "./pages/Onboarding.jsx";
 import BottomNav from "./components/BottomNav.jsx";
 import Toast from "./components/Toast.jsx";
 
@@ -62,6 +63,14 @@ function AppInner() {
     haptic(30);
   };
 
+  // Onboarding — show when loaded but no profile name yet
+  if (ok && !data.profile.name) return (
+    <Onboarding onComplete={(profile) => {
+      const nd = { ...data, profile: { ...data.profile, ...profile } };
+      setData(nd); sv(nd);
+    }} />
+  );
+
   // Skeleton loading
   if (!ok) return (
     <div style={{ background: G.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
@@ -80,7 +89,7 @@ function AppInner() {
 
   const renderPage = () => {
     if (page === "coach") return <Coach data={data} setData={setData} go={go} />;
-    if (page === "data") return <Data data={data} go={go} onQuickLog={quickLog} />;
+    if (page === "data") return <Data data={data} setData={setData} go={go} onQuickLog={quickLog} />;
     if (page === "log") return <Log data={data} setData={setData} initialForm={initialForm} />;
     if (page === "settings") return <Settings data={data} setData={setData} />;
     return <Coach data={data} setData={setData} go={go} />;

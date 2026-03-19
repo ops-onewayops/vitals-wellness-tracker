@@ -28,6 +28,8 @@ export default function Log({data,setData,initialForm}){
 
   useEffect(()=>{if(initialForm)setActive(initialForm);},[initialForm]);
 
+  const deleteEntry=(type,id)=>{const nd={...data,[type]:data[type].filter(x=>x.id!==id)};setData(nd);sv(nd);haptic(30);};
+
   const pastExercises=[...new Set(data.training.map(t=>t.name).filter(Boolean))];
   const exSuggestions=exSearch.length>=1?pastExercises.filter(e=>e.toLowerCase().includes(exSearch.toLowerCase())).slice(0,5):[];
   const recentMeals=data.nutrition.filter(n=>n.date!==today).slice(-8).reverse().slice(0,4);
@@ -95,15 +97,15 @@ Return ONLY valid JSON array: [{"food":"item with portion","calories":N,"protein
   const toggle=(id)=>setActive(a=>a===id?null:id);
 
   const todayFeed=[];
-  data.nutrition.filter(n=>n.date===today).forEach(n=>todayFeed.push({k:n.id,label:n.food,sub:`${n.meal} · ${n.calories||0}cal · P:${n.protein||0}g`,icon:"🍽️",color:G.moss}));
-  data.training.filter(t=>t.date===today).forEach(t=>todayFeed.push({k:t.id,label:t.name,sub:t.type==="Strength"?`${t.sets||""}×${t.reps||""}@${t.weight||""}lbs`:`${t.type} · ${t.duration||""}min`,icon:"💪",color:G.orange}));
-  data.hydration.filter(h=>h.date===today).forEach(h=>todayFeed.push({k:h.id,label:`${h.oz}oz ${h.type||"Water"}`,sub:h.time||"",icon:"💧",color:G.teal}));
-  data.supplements.filter(s=>s.date===today).forEach(s=>todayFeed.push({k:s.id,label:s.name,sub:`${s.timing}${s.dosage?` · ${s.dosage}`:""}`,icon:"💊",color:G.purple}));
-  data.sleep.filter(s=>s.date===today).forEach(s=>todayFeed.push({k:s.id,label:`${s.hours}hrs sleep`,sub:s.quality,icon:"🌙",color:G.indigo}));
-  data.lifestyle.filter(l=>l.date===today).forEach(l=>todayFeed.push({k:l.id,label:`Energy ${l.energy}/10 · Stress ${l.stress}/10`,sub:l.mood,icon:"🧘",color:G.pink}));
-  data.bodyMetrics.filter(b=>b.date===today).forEach(b=>todayFeed.push({k:b.id,label:`${b.weight||"?"}lbs${b.bodyFat?` · ${b.bodyFat}% BF`:""}`,sub:"Body",icon:"📏",color:G.blue}));
-  data.painLog.filter(p=>p.date===today).forEach(p=>todayFeed.push({k:p.id,label:`${p.location} pain`,sub:`${p.type} · ${p.severity}/10`,icon:"🩹",color:G.red}));
-  data.postWorkout.filter(p=>p.date===today).forEach(p=>todayFeed.push({k:p.id,label:`Post-WO: RPE ${p.rpe}/10`,sub:`${p.mood} · Energy ${p.energy}/10`,icon:"⚡",color:G.amber}));
+  data.nutrition.filter(n=>n.date===today).forEach(n=>todayFeed.push({k:n.id,type:"nutrition",label:n.food,sub:`${n.meal} · ${n.calories||0}cal · P:${n.protein||0}g`,icon:"🍽️",color:G.moss}));
+  data.training.filter(t=>t.date===today).forEach(t=>todayFeed.push({k:t.id,type:"training",label:t.name,sub:t.type==="Strength"?`${t.sets||""}×${t.reps||""}@${t.weight||""}lbs`:`${t.type} · ${t.duration||""}min`,icon:"💪",color:G.orange}));
+  data.hydration.filter(h=>h.date===today).forEach(h=>todayFeed.push({k:h.id,type:"hydration",label:`${h.oz}oz ${h.type||"Water"}`,sub:h.time||"",icon:"💧",color:G.teal}));
+  data.supplements.filter(s=>s.date===today).forEach(s=>todayFeed.push({k:s.id,type:"supplements",label:s.name,sub:`${s.timing}${s.dosage?` · ${s.dosage}`:""}`,icon:"💊",color:G.purple}));
+  data.sleep.filter(s=>s.date===today).forEach(s=>todayFeed.push({k:s.id,type:"sleep",label:`${s.hours}hrs sleep`,sub:s.quality,icon:"🌙",color:G.indigo}));
+  data.lifestyle.filter(l=>l.date===today).forEach(l=>todayFeed.push({k:l.id,type:"lifestyle",label:`Energy ${l.energy}/10 · Stress ${l.stress}/10`,sub:l.mood,icon:"🧘",color:G.pink}));
+  data.bodyMetrics.filter(b=>b.date===today).forEach(b=>todayFeed.push({k:b.id,type:"bodyMetrics",label:`${b.weight||"?"}lbs${b.bodyFat?` · ${b.bodyFat}% BF`:""}`,sub:"Body",icon:"📏",color:G.blue}));
+  data.painLog.filter(p=>p.date===today).forEach(p=>todayFeed.push({k:p.id,type:"painLog",label:`${p.location} pain`,sub:`${p.type} · ${p.severity}/10`,icon:"🩹",color:G.red}));
+  data.postWorkout.filter(p=>p.date===today).forEach(p=>todayFeed.push({k:p.id,type:"postWorkout",label:`Post-WO: RPE ${p.rpe}/10`,sub:`${p.mood} · Energy ${p.energy}/10`,icon:"⚡",color:G.amber}));
 
   return <div>
     {/* AI Text Entry */}
@@ -294,7 +296,7 @@ Return ONLY valid JSON array: [{"food":"item with portion","calories":N,"protein
     {/* Today Feed */}
     {todayFeed.length>0&&<div style={{marginTop:18}}>
       <div style={{fontSize:10,fontWeight:700,color:G.dim,letterSpacing:1,marginBottom:8}}>TODAY'S LOG</div>
-      {todayFeed.map((f,i)=><EI key={f.k+i} primary={f.label} secondary={f.sub} color={f.color}/>)}
+      {todayFeed.map((f,i)=><EI key={f.k+i} primary={f.label} secondary={f.sub} color={f.color} onDelete={()=>deleteEntry(f.type,f.k)}/>)}
     </div>}
   </div>;
 }
