@@ -27,8 +27,6 @@ export function ThemeProvider({ children }) {
   useEffect(() => {
     document.body.style.background = theme.bg;
     document.body.style.color = theme.txt;
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = theme.bg;
   }, [theme.bg, theme.txt]);
 
   return <ThemeContext.Provider value={{ theme, mode, setMode }}>{children}</ThemeContext.Provider>;

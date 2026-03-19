@@ -1,4 +1,4 @@
-// src/themes.js — Dark and light theme objects
+// src/themes.js — Dark and light theme objects (v10.1 complete)
 
 export const darkTheme = {
   bg: "#06070b", surface: "rgba(255,255,255,0.03)",
@@ -11,17 +11,37 @@ export const darkTheme = {
   gPink: ["#f472b6","#db2777"], gAmber: ["#fbbf24","#d97706"], gIndigo: ["#818cf8","#4f46e5"],
   moss: "#2dd36f", blue: "#4dc9f6", purple: "#b48eff", orange: "#ff9f43",
   red: "#ff4d6a", teal: "#22d3ee", pink: "#f472b6", amber: "#fbbf24", indigo: "#818cf8",
+  cardShadow: "0 4px 24px rgba(0,0,0,.3)",
+  navShadow: "0 8px 32px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.05) inset",
+  navBg: "rgba(18,19,26,0.8)",
+  glowOpacity: 1,
+  tooltipBg: "#1a1b26",
+  userBubble: "linear-gradient(135deg, #2dd36f, #0d9e4f)",
+  coachBubble: "rgba(255,255,255,0.09)",
+  userBubbleText: "#fff",
+  coachBubbleText: "#a0a0b8",
+  inputBg: "rgba(255,255,255,0.06)",
 };
 
 export const lightTheme = {
   bg: "#f6f5f1", surface: "rgba(0,0,0,0.02)",
-  glass: "rgba(255,255,255,0.75)", glass2: "rgba(255,255,255,0.9)", glass3: "rgba(255,255,255,0.95)",
-  glassBorder: "rgba(0,0,0,0.07)", glassBorder2: "rgba(0,0,0,0.12)",
-  blur: "blur(24px)", blur2: "blur(40px)",
-  txt: "#1a1a2e", sub: "#4a4a6a", dim: "#8888a8", muted: "#ccccdd",
-  gMoss: ["#2dd36f","#0d9e4f"], gBlue: ["#4dc9f6","#2979ff"], gPurple: ["#b48eff","#7c4dff"],
-  gOrange: ["#ff9f43","#ff6b35"], gRed: ["#ff4d6a","#e02050"], gTeal: ["#22d3ee","#0891b2"],
-  gPink: ["#f472b6","#db2777"], gAmber: ["#fbbf24","#d97706"], gIndigo: ["#818cf8","#4f46e5"],
-  moss: "#1fb857", blue: "#2979ff", purple: "#7c4dff", orange: "#e07a20",
-  red: "#e02050", teal: "#0891b2", pink: "#db2777", amber: "#d97706", indigo: "#4f46e5",
+  glass: "rgba(255,255,255,0.75)", glass2: "rgba(255,255,255,0.85)", glass3: "rgba(255,255,255,0.92)",
+  glassBorder: "rgba(0,0,0,0.06)", glassBorder2: "rgba(0,0,0,0.10)",
+  blur: "blur(20px)", blur2: "blur(32px)",
+  txt: "#1a1a2e", sub: "#4a4a65", dim: "#8a8aa0", muted: "#c8c8d8",
+  gMoss: ["#34d576","#22b85c"], gBlue: ["#56cef5","#3b87ff"], gPurple: ["#b98eff","#8b5cf6"],
+  gOrange: ["#ffa94d","#ff7643"], gRed: ["#ff5a78","#e83058"], gTeal: ["#2dd4ef","#0ea5c9"],
+  gPink: ["#f57cc0","#e0388d"], gAmber: ["#fcc43d","#e09b12"], gIndigo: ["#8f96fa","#5b52f0"],
+  moss: "#1fa855", blue: "#2997d4", purple: "#8b5cf6", orange: "#e8850a",
+  red: "#dc2c4c", teal: "#0891b2", pink: "#d6249f", amber: "#ca8a04", indigo: "#5b52f0",
+  cardShadow: "0 2px 12px rgba(0,0,0,.06), 0 1px 3px rgba(0,0,0,.04)",
+  navShadow: "0 -2px 20px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04)",
+  navBg: "rgba(255,255,255,0.85)",
+  glowOpacity: 0.25,
+  tooltipBg: "#ffffff",
+  userBubble: "linear-gradient(135deg, #1fa855, #22b85c)",
+  coachBubble: "rgba(0,0,0,0.04)",
+  userBubbleText: "#fff",
+  coachBubbleText: "#4a4a65",
+  inputBg: "rgba(0,0,0,0.04)",
 };

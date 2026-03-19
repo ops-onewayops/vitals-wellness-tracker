@@ -297,7 +297,7 @@ Format: [{"name":"Exercise Name","type":"Strength"|"Cardio"|"Plyometrics"|"Mobil
         <input ref={impRef} type="file" accept=".json" style={{display:"none"}} onChange={e=>{if(e.target.files[0])imp(e.target.files[0]);}}/>
       </div>
       <Btn onClick={()=>{if(confirm("Delete ALL data? Cannot be undone.")){setData(DEF);sv(DEF);}}} v="danger" sx={{width:"100%"}}>Clear All Data</Btn>
-      <div style={{marginTop:14,fontSize:11,color:G.dim,lineHeight:1.6}}>Vitals v10.1 · Coach-First · IndexedDB · Claude AI · Data stored on device only.</div>
+      <div style={{marginTop:14,fontSize:11,color:G.dim,lineHeight:1.6}}>Vitals v10.1 · IndexedDB · Claude AI · Data stored on device only.</div>
     </Sect>
   </div>;
 }
