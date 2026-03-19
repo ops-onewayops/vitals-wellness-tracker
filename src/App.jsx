@@ -1,7 +1,9 @@
 // src/App.jsx — Shell: data loading, routing, nav, toast
 
 import { useState, useEffect } from "react";
-import { DEF, G } from "./theme.js";
+import { AnimatePresence, motion } from "framer-motion";
+import { ThemeProvider, useTheme } from "./ThemeContext.jsx";
+import { DEF } from "./theme.js";
 import { ld, sv, td, uid } from "./helpers.js";
 import Home from "./pages/Home.jsx";
 import Log from "./pages/Log.jsx";
@@ -10,7 +12,8 @@ import Settings from "./pages/Settings.jsx";
 import BottomNav from "./components/BottomNav.jsx";
 import Toast from "./components/Toast.jsx";
 
-export default function App(){
+function AppInner(){
+  const {theme:G,mode}=useTheme();
   const [data,setData]=useState(DEF);
   const [page,setPage]=useState("home");
   const [initialForm,setInitialForm]=useState(null);
@@ -24,8 +27,7 @@ export default function App(){
     heartRate:s?.heartRate||[],ecg:s?.ecg||[],bloodOx:s?.bloodOx||[],respiratory:s?.respiratory||[],
     stepsData:s?.stepsData||[],watchWorkouts:s?.watchWorkouts||[],suppStacks:s?.suppStacks||[],feedback:s?.feedback||[]});setOk(true);})();},[]);
 
-  useEffect(()=>{const l=document.createElement("link");l.href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap";l.rel="stylesheet";document.head.appendChild(l);
-    const st=document.createElement("style");st.textContent=`@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}`;document.head.appendChild(st);},[]);
+  useEffect(()=>{const l=document.createElement("link");l.href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap";l.rel="stylesheet";document.head.appendChild(l);},[]);
 
   const quickLog=(type)=>{
     if(type==="water"){
@@ -35,32 +37,54 @@ export default function App(){
     }
   };
 
-  // Navigate to log with optional pre-opened form
   const go=(p,form)=>{
     if(p==="log"&&form){setInitialForm(form);setPage("log");}
     else{setInitialForm(null);setPage(p);}
   };
 
-  if(!ok)return <div style={{background:G.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{color:G.moss,fontSize:24,fontWeight:800}}>Vitals</div></div>;
+  if(!ok)return <div style={{background:G.bg,minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}>
+    <div style={{color:G.moss,fontSize:28,fontWeight:800,letterSpacing:-1}}>Vitals</div>
+    <div style={{display:"flex",gap:6}}>
+      {[0,1,2].map(i=><motion.div key={i} style={{width:6,height:6,borderRadius:3,background:G.moss}}
+        animate={{opacity:[0.2,1,0.2],scale:[0.8,1,0.8]}}
+        transition={{duration:1.2,repeat:Infinity,delay:i*0.2}}/>)}
+    </div>
+  </div>;
 
   const tabTitle={home:"Vitals",log:"Log",coach:"Coach",settings:"Settings"};
-  const headerTitle=tabTitle[page]||"Vitals";
 
   const renderPage=()=>{
     if(page==="home")return <Home data={data} go={go} onQuickLog={quickLog}/>;
     if(page==="log")return <Log data={data} setData={setData} initialForm={initialForm}/>;
-    if(page==="coach")return <Coach data={data} setData={setData}/>;
+    if(page==="coach")return <Coach data={data} setData={setData} go={go}/>;
     if(page==="settings")return <Settings data={data} setData={setData}/>;
     return <Home data={data} go={go} onQuickLog={quickLog}/>;
   };
 
   return <div style={{background:G.bg,minHeight:"100vh",fontFamily:"'Inter',sans-serif",color:G.txt,maxWidth:480,margin:"0 auto",position:"relative",paddingBottom:80}}>
-    <div style={{padding:"16px 20px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,background:`${G.bg}dd`,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)"}}>
-      <div style={{fontSize:18,fontWeight:800,color:G.txt,letterSpacing:-.5}}>{headerTitle}</div>
+    <div style={{padding:"16px 20px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,background:`${G.bg}dd`,backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",borderBottom:`1px solid ${G.glassBorder}`}}>
+      <div style={{fontSize:18,fontWeight:800,color:G.txt,letterSpacing:-.5}}>{tabTitle[page]||"Vitals"}</div>
       {page==="home"&&<button onClick={()=>go("log")} style={{background:`linear-gradient(135deg,${G.gMoss[0]},${G.gMoss[1]})`,color:"#fff",border:"none",borderRadius:20,padding:"6px 16px",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",boxShadow:`0 4px 20px ${G.moss}30`}}>+ Log</button>}
     </div>
-    <div style={{padding:"12px 20px 40px"}}>{renderPage()}</div>
+    <div style={{padding:"12px 20px 40px"}}>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={page}
+          initial={{opacity:0,y:8}}
+          animate={{opacity:1,y:0}}
+          exit={{opacity:0,y:-8}}
+          transition={{duration:0.2,ease:"easeInOut"}}>
+          {renderPage()}
+        </motion.div>
+      </AnimatePresence>
+    </div>
     <BottomNav current={page} onNav={p=>{setInitialForm(null);setPage(p);}}/>
-    {toast&&<Toast message={toast.message} color={toast.color} onDone={()=>setToast(null)}/>}
+    <AnimatePresence>
+      {toast&&<Toast key="toast" message={toast.message} color={toast.color} onDone={()=>setToast(null)}/>}
+    </AnimatePresence>
   </div>;
+}
+
+export default function App(){
+  return <ThemeProvider><AppInner/></ThemeProvider>;
 }

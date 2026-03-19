@@ -1,9 +1,10 @@
 // src/intel.js — Cross-domain intelligence engine
 
-import { G } from "./theme.js";
+import { useTheme } from "./ThemeContext.jsx";
 import { td, hr } from "./helpers.js";
 
 export function useVitalsIntel(data){
+  const {theme:G}=useTheme();
   const p=data.profile;const tgt=p.targets||{calories:2800,protein:180,water:100};
   const today=td();
 

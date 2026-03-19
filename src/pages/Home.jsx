@@ -1,15 +1,18 @@
 // src/pages/Home.jsx
 
-import { G } from "../theme.js";
+import { useTheme } from "../ThemeContext.jsx";
 import { useVitalsIntel } from "../intel.js";
+import { generateBriefing } from "../briefing.js";
 import { td, hr } from "../helpers.js";
 import { Glass, GradCard, Ring, EI, Btn } from "../components/Glass.jsx";
 
 export default function Home({data,go,onQuickLog}){
+  const {theme:G}=useTheme();
   const intel=useVitalsIntel(data);
+  const briefingText=generateBriefing(intel,data);
   const p=data.profile;const tgt=intel.tgt;
   const tc=intel.todayCal;const tp=intel.todayProt;const todayH=intel.todayWater;
-  const rs=data.sleep.slice(-7);const avgSleep=intel.avgSleepHrs!=null?intel.avgSleepHrs.toFixed(1):"—";
+  const avgSleep=intel.avgSleepHrs!=null?intel.avgSleepHrs.toFixed(1):"—";
   const lb=data.bodyMetrics.length?data.bodyMetrics[data.bodyMetrics.length-1]:null;
   const wk=intel.workoutsThisWeek;
   const latestHR=intel.latestHR;
@@ -25,9 +28,9 @@ export default function Home({data,go,onQuickLog}){
     <div style={{position:"absolute",top:500,left:-40,width:250,height:250,background:"radial-gradient(circle,rgba(34,211,238,.1) 0%,transparent 70%)",pointerEvents:"none",zIndex:0}}/>
 
     <div style={{position:"relative",zIndex:1}}>
-      <div style={{marginBottom:28,paddingTop:8}}>
+      <div style={{marginBottom:24,paddingTop:8}}>
         <div style={{fontSize:13,color:G.dim,fontWeight:500}}>{new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"})}</div>
-        <div style={{fontSize:34,fontWeight:800,color:G.txt,marginTop:4,letterSpacing:-.5,lineHeight:1.1}}>
+        <div style={{fontSize:32,fontWeight:800,color:G.txt,marginTop:4,letterSpacing:-.5,lineHeight:1.1}}>
           {hr()<12?"Good Morning":hr()<18?"Good Afternoon":"Good Evening"}{name?`, ${name}`:""}<span style={{color:G.moss}}>.</span>
         </div>
       </div>
@@ -63,13 +66,16 @@ export default function Home({data,go,onQuickLog}){
         </div>
       </Glass>
 
-      {/* Smart Signals */}
-      {intel.signals.length>0&&<div style={{marginBottom:14}}>
-        {intel.signals.slice(0,3).map((s,i)=><div key={i} onClick={()=>go("log")} style={{background:`${s.color}08`,border:`1px solid ${s.color}18`,borderRadius:14,padding:"10px 14px",marginBottom:6,cursor:"pointer",display:"flex",alignItems:"flex-start",gap:10}}>
-          <span style={{fontSize:18,marginTop:1,flexShrink:0}}>{s.icon}</span>
-          <span style={{fontSize:12,color:G.sub,lineHeight:1.5,fontWeight:500}}>{s.text}</span>
+      {/* Coach Teaser Card */}
+      <Glass glow={`radial-gradient(circle at 0% 50%,${G.moss}25,transparent 60%)`} style={{marginBottom:14,borderRadius:20,cursor:"pointer"}} onClick={()=>go("coach")}>
+        <div style={{fontSize:10,fontWeight:700,color:G.moss,letterSpacing:1.5,marginBottom:8}}>⬡ AI COACH</div>
+        <div style={{fontSize:13,color:G.sub,lineHeight:1.6,marginBottom:intel.signals.length>0?10:0}}>{briefingText}</div>
+        {intel.signals.slice(0,2).map((s,i)=><div key={i} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"6px 0",borderTop:`1px solid ${G.glassBorder}`}}>
+          <span style={{fontSize:15,flexShrink:0,marginTop:1}}>{s.icon}</span>
+          <span style={{fontSize:12,color:G.dim,lineHeight:1.45,fontWeight:500}}>{s.text}</span>
         </div>)}
-      </div>}
+        <div style={{fontSize:12,color:G.moss,fontWeight:600,marginTop:10}}>Chat with Coach →</div>
+      </Glass>
 
       {/* Quick-log actions */}
       <div style={{display:"flex",gap:8,marginBottom:14}}>
@@ -136,7 +142,7 @@ export default function Home({data,go,onQuickLog}){
 
       {/* AI Insight teaser */}
       {data.insights.length>0&&<Glass glow={`radial-gradient(circle at 0% 50%,${G.moss}20,transparent 60%)`} style={{marginBottom:14,borderRadius:20}} onClick={()=>go("coach")}>
-        <div style={{fontSize:10,fontWeight:700,color:G.moss,letterSpacing:1.5,marginBottom:8}}>⬡ AI INSIGHT</div>
+        <div style={{fontSize:10,fontWeight:700,color:G.moss,letterSpacing:1.5,marginBottom:8}}>⬡ LATEST ANALYSIS</div>
         <div style={{fontSize:13,color:G.sub,lineHeight:1.6}}>{data.insights[data.insights.length-1].text?.slice(0,200)}...</div>
       </Glass>}
 

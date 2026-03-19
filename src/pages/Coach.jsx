@@ -1,21 +1,54 @@
-// src/pages/Coach.jsx — AI Coach: Chat, Analyze, History, Memory
+// src/pages/Coach.jsx — AI Coach: neural header, smart actions, chat, collapsible analysis
 
 import { useState, useEffect, useRef } from "react";
-import { G } from "../theme.js";
+import { motion, AnimatePresence } from "framer-motion";
+import { useTheme } from "../ThemeContext.jsx";
 import { td, uid, sv } from "../helpers.js";
 import { useVitalsIntel } from "../intel.js";
+import { generateBriefing, generateSmartActions } from "../briefing.js";
 import { Glass, Btn, Fld } from "../components/Glass.jsx";
 import { callClaude, hasApiKey } from "../api.js";
 
-export default function Coach({data,setData}){
+export default function Coach({data,setData,go}){
+  const {theme:G}=useTheme();
   const intel=useVitalsIntel(data);
-  const [tab,setTab]=useState("chat");
-  const [chatInput,setChatInput]=useState("");const [chatHistory,setChatHistory]=useState([]);const [chatLoading,setChatLoading]=useState(false);
-  const chatEndRef=useRef(null);
-  const [genLoading,setGenLoading]=useState(false);const [genErr,setGenErr]=useState(null);
-  const [err,setErr]=useState(null);
+  const briefingText=generateBriefing(intel,data);
+  const smartActions=generateSmartActions(intel,data);
 
-  useEffect(()=>{chatEndRef.current?.scrollIntoView({behavior:"smooth"});},[chatHistory]);
+  const [chatInput,setChatInput]=useState("");
+  const [chatHistory,setChatHistory]=useState([]);
+  const [chatLoading,setChatLoading]=useState(false);
+  const [err,setErr]=useState(null);
+  const [moreOpen,setMoreOpen]=useState(false);
+  const [moreTab,setMoreTab]=useState("gen");
+  const [genLoading,setGenLoading]=useState(false);
+  const [genErr,setGenErr]=useState(null);
+  const chatEndRef=useRef(null);
+
+  useEffect(()=>{chatEndRef.current?.scrollIntoView({behavior:"smooth"});},[chatHistory,chatLoading]);
+
+  // Inject CSS keyframes for neural animation and thinking dots
+  useEffect(()=>{
+    const st=document.createElement("style");
+    st.id="coach-styles";
+    st.textContent=`
+      @keyframes neuralPulse {
+        0%,100% { opacity:0.35; transform:scale(1) rotate(0deg); }
+        50% { opacity:0.65; transform:scale(1.2) rotate(180deg); }
+      }
+      @keyframes neuralDrift {
+        0%,100% { transform:translateX(0) translateY(0); }
+        33% { transform:translateX(8px) translateY(-6px); }
+        66% { transform:translateX(-6px) translateY(8px); }
+      }
+      @keyframes thinkDot {
+        0%,80%,100% { opacity:0.25; transform:scale(0.7); }
+        40% { opacity:1; transform:scale(1); }
+      }
+    `;
+    if(!document.getElementById("coach-styles"))document.head.appendChild(st);
+    return()=>{document.getElementById("coach-styles")?.remove();};
+  },[]);
 
   const buildContext=()=>{
     const mem=data.aiMemory.slice(-12).map(m=>`[${m.date}] ${m.summary}`).join("\n");
@@ -85,7 +118,6 @@ You can log items for the user. When they mention food, exercises, water, supple
 Only include relevant types. For meals, estimate accurate macros using USDA data. Always confirm before logging unless the user explicitly asks to log.`;
   };
 
-  // ── Log parser — extracts and executes vitals-log blocks from AI responses ──
   const executeLogBlock=(text)=>{
     const match=text.match(/```vitals-log\s*([\s\S]*?)\s*```/);
     if(!match)return{cleaned:text,count:0};
@@ -107,8 +139,9 @@ Only include relevant types. For meals, estimate accurate macros using USDA data
     return{cleaned,count};
   };
 
-  const sendChat=async()=>{if(!chatInput.trim()||chatLoading)return;
-    const userMsg={role:"user",content:chatInput};
+  const doSend=async(msg)=>{
+    if(!msg.trim()||chatLoading)return;
+    const userMsg={role:"user",content:msg};
     const newHistory=[...chatHistory,userMsg];
     setChatHistory(newHistory);setChatInput("");setChatLoading(true);setErr(null);
     try{
@@ -121,6 +154,13 @@ Only include relevant types. For meals, estimate accurate macros using USDA data
     setChatLoading(false);
   };
 
+  const sendChat=()=>doSend(chatInput);
+
+  const tapAction=(text)=>{
+    setChatInput(text);
+    doSend(text);
+  };
+
   const genAnalysis=async()=>{setGenLoading(true);setGenErr(null);try{
     const sys=buildCoachSys()+`\n\nGive a comprehensive but readable analysis. Structure it naturally — don't use headers like "NUTRITION ANALYSIS" or clinical formatting. Instead, flow through what's going well, what could use attention, and 2-3 specific action items. Keep it to about 300 words. Reference their actual numbers.\n\nCross-reference domains: connect sleep to training performance, nutrition to recovery, hydration to energy, pain to exercise selection. Spot patterns.\n\nEnd with: [MEMORY]: one-sentence key takeaway for next time.`;
     const payload={recentNutrition:data.nutrition.slice(-28),recentTraining:data.training.slice(-28),recentBody:data.bodyMetrics.slice(-8),recentSleep:data.sleep.slice(-21),recentLifestyle:data.lifestyle.slice(-21)};
@@ -129,81 +169,146 @@ Only include relevant types. For meals, estimate accurate macros using USDA data
     const nd={...data,insights:[...data.insights,{id:uid(),date:td(),text:txt}],aiMemory:[...data.aiMemory,{id:uid(),date:td(),summary:mN}]};setData(nd);sv(nd);
   }catch(e){setGenErr(e.message||"Failed.");}setGenLoading(false);};
 
-  const tabList=[["chat","💬 Chat"],["gen","📊 Analyze"],["hist","History"],["mem","Memory"]];
-
   return <div>
-    {/* Stats bar */}
-    <div style={{display:"flex",gap:8,marginBottom:14}}>
-      {intel.recoveryScore!=null&&<Glass style={{flex:1,padding:"10px 14px",borderRadius:14,textAlign:"center"}}>
-        <div style={{fontSize:9,color:G.dim,fontWeight:700}}>Recovery</div>
-        <div style={{fontSize:22,fontWeight:800,color:intel.recoveryColor}}>{intel.recoveryScore}</div>
-      </Glass>}
-      <Glass style={{flex:1,padding:"10px 14px",borderRadius:14,textAlign:"center"}}><div style={{fontSize:9,color:G.dim,fontWeight:700}}>Analyses</div><div style={{fontSize:22,fontWeight:800,color:G.moss}}>{data.insights.length}</div></Glass>
-      <Glass style={{flex:1,padding:"10px 14px",borderRadius:14,textAlign:"center"}}><div style={{fontSize:9,color:G.dim,fontWeight:700}}>Memory</div><div style={{fontSize:22,fontWeight:800,color:G.purple}}>{data.aiMemory.length}</div></Glass>
+    {/* ── Neural Header ── */}
+    <div style={{position:"relative",borderRadius:24,overflow:"hidden",marginBottom:14,padding:"20px 20px 16px"}}>
+      {/* Animated blobs */}
+      <div style={{position:"absolute",top:"-30%",left:"-10%",width:"60%",height:"160%",background:`radial-gradient(circle,${G.moss}30,transparent 70%)`,animation:"neuralPulse 6s ease infinite",pointerEvents:"none"}}/>
+      <div style={{position:"absolute",top:"20%",right:"-15%",width:"55%",height:"130%",background:`radial-gradient(circle,${G.purple}20,transparent 70%)`,animation:"neuralPulse 8s ease infinite 2s",pointerEvents:"none"}}/>
+      <div style={{position:"absolute",bottom:"-20%",left:"30%",width:"50%",height:"100%",background:`radial-gradient(circle,${G.teal}15,transparent 70%)`,animation:"neuralDrift 10s ease infinite",pointerEvents:"none"}}/>
+      <div style={{position:"absolute",inset:0,background:G.glass,backdropFilter:G.blur,WebkitBackdropFilter:G.blur,border:`1px solid ${G.glassBorder}`,borderRadius:24}}/>
+
+      <div style={{position:"relative",zIndex:1}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+          <div style={{fontSize:9,fontWeight:700,color:G.moss,letterSpacing:2,background:`${G.moss}15`,border:`1px solid ${G.moss}30`,borderRadius:8,padding:"3px 8px"}}>⬡ AI COACH</div>
+          {intel.recoveryScore!=null&&<div style={{fontSize:9,fontWeight:700,color:intel.recoveryColor,letterSpacing:1,background:`${intel.recoveryColor}15`,border:`1px solid ${intel.recoveryColor}30`,borderRadius:8,padding:"3px 8px"}}>Recovery {intel.recoveryScore}</div>}
+        </div>
+        <div style={{fontSize:14,color:G.sub,lineHeight:1.65,fontWeight:500}}>{briefingText}</div>
+      </div>
     </div>
 
-    {/* Tabs */}
-    <div style={{display:"flex",gap:6,marginBottom:16,overflowX:"auto",paddingBottom:2}}>
-      {tabList.map(([k,l])=><Btn key={k} onClick={()=>setTab(k)} v={tab===k?"primary":"secondary"} sx={{flexShrink:0,padding:"9px 14px",fontSize:12}}>{l}</Btn>)}
+    {/* ── Smart Action Cards ── */}
+    {hasApiKey()&&<div style={{marginBottom:14}}>
+      <div style={{overflowX:"auto",display:"flex",gap:8,paddingBottom:4,msOverflowStyle:"none",scrollbarWidth:"none"}}>
+        {smartActions.map((a,i)=><motion.button key={i} whileTap={{scale:0.95}}
+          onClick={()=>tapAction(a.text)}
+          style={{flexShrink:0,background:`${a.color}10`,border:`1px solid ${a.color}25`,borderRadius:16,padding:"10px 14px",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:8,maxWidth:220}}>
+          <span style={{fontSize:18,flexShrink:0}}>{a.icon}</span>
+          <span style={{fontSize:12,fontWeight:600,color:G.sub,textAlign:"left",lineHeight:1.35}}>{a.text}</span>
+        </motion.button>)}
+      </div>
+    </div>}
+
+    {/* ── Quick Stats Bar ── */}
+    <div style={{display:"flex",gap:8,marginBottom:14}}>
+      {intel.recoveryScore!=null&&<Glass style={{flex:1,padding:"10px 14px",borderRadius:14,textAlign:"center"}}>
+        <div style={{fontSize:9,color:G.dim,fontWeight:700,letterSpacing:.5}}>RECOVERY</div>
+        <div style={{fontSize:22,fontWeight:800,color:intel.recoveryColor}}>{intel.recoveryScore}</div>
+      </Glass>}
+      <Glass style={{flex:1,padding:"10px 14px",borderRadius:14,textAlign:"center"}}>
+        <div style={{fontSize:9,color:G.dim,fontWeight:700,letterSpacing:.5}}>ANALYSES</div>
+        <div style={{fontSize:22,fontWeight:800,color:G.moss}}>{data.insights.length}</div>
+      </Glass>
+      <Glass style={{flex:1,padding:"10px 14px",borderRadius:14,textAlign:"center"}}>
+        <div style={{fontSize:9,color:G.dim,fontWeight:700,letterSpacing:.5}}>MEMORY</div>
+        <div style={{fontSize:22,fontWeight:800,color:G.purple}}>{data.aiMemory.length}</div>
+      </Glass>
     </div>
 
     {!hasApiKey()&&<Glass style={{marginBottom:14,padding:14,borderRadius:16}}><div style={{fontSize:13,color:G.orange,fontWeight:600}}>Add your API key in Settings to use AI features</div></Glass>}
 
-    {/* Chat */}
-    {tab==="chat"&&<div>
-      <Glass style={{borderRadius:20,padding:0,overflow:"hidden",marginBottom:12}}>
-        <div style={{maxHeight:360,overflowY:"auto",padding:"16px 14px 8px"}}>
-          {chatHistory.length===0&&<div style={{textAlign:"center",padding:"24px 12px",color:G.dim}}>
-            <div style={{fontSize:28,marginBottom:10}}>💬</div>
-            <div style={{fontSize:14,fontWeight:600,color:G.sub,marginBottom:6}}>Ask your coach anything</div>
-            <div style={{fontSize:12,lineHeight:1.5}}>Try: "Should I train today?" or "What should I eat for dinner?" or "Why am I so tired lately?"</div>
-          </div>}
-          {chatHistory.map((msg,i)=><div key={i} style={{display:"flex",justifyContent:msg.role==="user"?"flex-end":"flex-start",marginBottom:10}}>
-            <div style={{maxWidth:"85%",padding:"10px 14px",borderRadius:msg.role==="user"?"16px 16px 4px 16px":"16px 16px 16px 4px",
-              background:msg.role==="user"?`linear-gradient(135deg,${G.gMoss[0]},${G.gMoss[1]})`:G.glass2,
-              color:msg.role==="user"?"#fff":G.sub,fontSize:13,lineHeight:1.6,whiteSpace:"pre-wrap"}}>
+    {/* ── Chat ── */}
+    <Glass style={{borderRadius:20,padding:0,overflow:"hidden",marginBottom:12}}>
+      <div style={{maxHeight:380,overflowY:"auto",padding:"16px 14px 8px"}}>
+        {chatHistory.length===0&&<div style={{textAlign:"center",padding:"24px 12px",color:G.dim}}>
+          <div style={{fontSize:28,marginBottom:10}}>💬</div>
+          <div style={{fontSize:14,fontWeight:600,color:G.sub,marginBottom:6}}>Ask your coach anything</div>
+          <div style={{fontSize:12,color:G.dim,lineHeight:1.5}}>Tap a card above or type below</div>
+        </div>}
+        {chatHistory.map((msg,i)=>{
+          const isLog=msg.role==="assistant"&&msg.content?.includes("✅ Logged");
+          return <div key={i} style={{display:"flex",justifyContent:msg.role==="user"?"flex-end":"flex-start",marginBottom:10}}>
+            <div style={{maxWidth:"85%",padding:"10px 14px",
+              borderRadius:msg.role==="user"?"18px 18px 4px 18px":"18px 18px 18px 4px",
+              background:msg.role==="user"
+                ?`linear-gradient(135deg,${G.gMoss[0]},${G.gMoss[1]})`
+                :isLog?`${G.moss}15`
+                :G.glass2,
+              color:msg.role==="user"?"#fff":isLog?G.moss:G.sub,
+              fontSize:13,lineHeight:1.65,whiteSpace:"pre-wrap",
+              border:isLog?`1px solid ${G.moss}25`:"none"}}>
               {msg.content}
             </div>
-          </div>)}
-          {chatLoading&&<div style={{display:"flex",justifyContent:"flex-start",marginBottom:10}}>
-            <div style={{padding:"10px 14px",borderRadius:"16px 16px 16px 4px",background:G.glass2,color:G.dim,fontSize:13}}>Thinking...</div>
+          </div>;
+        })}
+        {chatLoading&&<div style={{display:"flex",justifyContent:"flex-start",marginBottom:10}}>
+          <div style={{padding:"12px 16px",borderRadius:"18px 18px 18px 4px",background:G.glass2,display:"flex",gap:5,alignItems:"center"}}>
+            {[0,1,2].map(i=><div key={i} style={{width:6,height:6,borderRadius:3,background:G.dim,animation:"thinkDot 1.2s ease infinite",animationDelay:`${i*0.2}s`}}/>)}
+          </div>
+        </div>}
+        <div ref={chatEndRef}/>
+      </div>
+      <div style={{display:"flex",gap:8,padding:"8px 12px 12px",borderTop:`1px solid ${G.glassBorder}`}}>
+        <input value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();}}}
+          placeholder="Ask your coach..." style={{flex:1,background:G.glass,border:`1px solid ${G.glassBorder}`,borderRadius:20,padding:"10px 16px",color:G.txt,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+        <motion.button whileTap={{scale:0.92}} onClick={sendChat} disabled={chatLoading||!chatInput.trim()}
+          style={{background:`linear-gradient(135deg,${G.gMoss[0]},${G.gMoss[1]})`,border:"none",borderRadius:20,width:44,height:44,color:"#fff",fontSize:18,cursor:"pointer",opacity:(chatLoading||!chatInput.trim())?.5:1,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>↑</motion.button>
+      </div>
+    </Glass>
+    {err&&<div style={{color:G.red,fontSize:12,marginBottom:8}}>{err}</div>}
+
+    {/* ── Collapsible: Analyze / History / Memory ── */}
+    <motion.button whileTap={{scale:0.98}} onClick={()=>setMoreOpen(o=>!o)}
+      style={{width:"100%",background:G.glass,border:`1px solid ${G.glassBorder}`,borderRadius:moreOpen?"16px 16px 0 0":16,padding:"12px 16px",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"space-between",backdropFilter:G.blur,marginBottom:0}}>
+      <span style={{fontSize:13,fontWeight:700,color:G.sub}}>📊 Analysis · History · Memory</span>
+      <motion.span animate={{rotate:moreOpen?180:0}} transition={{duration:0.2}} style={{display:"inline-block",fontSize:12,color:G.dim}}>▾</motion.span>
+    </motion.button>
+
+    <AnimatePresence>
+      {moreOpen&&<motion.div initial={{height:0,opacity:0}} animate={{height:"auto",opacity:1}} exit={{height:0,opacity:0}} transition={{duration:0.25,ease:"easeInOut"}} style={{overflow:"hidden"}}>
+        <div style={{background:G.glass,border:`1px solid ${G.glassBorder}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"14px 16px",backdropFilter:G.blur}}>
+          {/* Sub-tab buttons */}
+          <div style={{display:"flex",gap:6,marginBottom:14}}>
+            {[["gen","📊 Analyze"],["hist","History"],["mem","Memory"]].map(([k,l])=>
+              <button key={k} onClick={()=>setMoreTab(k)} style={{flex:1,background:moreTab===k?`${G.moss}20`:G.glass2,border:`1px solid ${moreTab===k?G.moss+"40":G.glassBorder}`,borderRadius:10,padding:"7px 10px",fontSize:11,fontWeight:600,color:moreTab===k?G.moss:G.sub,cursor:"pointer",fontFamily:"inherit"}}>{l}</button>
+            )}
+          </div>
+
+          {moreTab==="gen"&&<div>
+            <div style={{textAlign:"center",marginBottom:14}}>
+              <Btn onClick={genAnalysis} disabled={genLoading} sx={{padding:"12px 28px",fontSize:14,borderRadius:14}}>{genLoading?"Analyzing...":"⬡ Full Analysis"}</Btn>
+              {genErr&&<div style={{color:G.red,fontSize:12,marginTop:6}}>{genErr}</div>}
+            </div>
+            {data.insights.length>0&&<Glass style={{borderRadius:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+                <span style={{fontSize:11,fontWeight:700,color:G.moss}}>⬡ Latest</span>
+                <span style={{fontSize:11,color:G.dim}}>{data.insights[data.insights.length-1].date}</span>
+              </div>
+              <div style={{fontSize:13,color:G.sub,lineHeight:1.65,whiteSpace:"pre-wrap"}}>{data.insights[data.insights.length-1].text}</div>
+            </Glass>}
           </div>}
-          <div ref={chatEndRef}/>
-        </div>
-        <div style={{display:"flex",gap:8,padding:"8px 12px 12px",borderTop:`1px solid ${G.glassBorder}`}}>
-          <input value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();}}}
-            placeholder="Ask your coach..." style={{flex:1,background:G.glass,border:`1px solid ${G.glassBorder}`,borderRadius:20,padding:"10px 16px",color:G.txt,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
-          <button onClick={sendChat} disabled={chatLoading||!chatInput.trim()} style={{background:`linear-gradient(135deg,${G.gMoss[0]},${G.gMoss[1]})`,border:"none",borderRadius:20,width:44,height:44,color:"#fff",fontSize:18,cursor:"pointer",opacity:(chatLoading||!chatInput.trim())?.5:1,display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
-        </div>
-      </Glass>
-      {err&&<div style={{color:G.red,fontSize:12,marginBottom:8}}>{err}</div>}
-      <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-        {["Should I train today?","I had chicken rice and avocado for lunch","What should I eat for dinner?","Build me a push workout","Log 7.5 hours of sleep, good quality","How's my recovery looking?"].map((q,i)=>
-          <button key={i} onClick={()=>setChatInput(q)} style={{background:G.glass,border:`1px solid ${G.glassBorder}`,borderRadius:20,padding:"6px 12px",color:G.sub,fontSize:11,fontWeight:500,cursor:"pointer",fontFamily:"inherit"}}>{q}</button>)}
-      </div>
-    </div>}
 
-    {/* Full Analysis */}
-    {tab==="gen"&&<div>
-      <div style={{textAlign:"center",marginBottom:18}}>
-        <Btn onClick={genAnalysis} disabled={genLoading} sx={{padding:"14px 32px",fontSize:15,borderRadius:16}}>{genLoading?"Analyzing...":"⬡ Full Analysis"}</Btn>
-        {genErr&&<div style={{color:G.red,fontSize:12,marginTop:6}}>{genErr}</div>}
-      </div>
-      {data.insights.length>0&&<Glass style={{borderRadius:16}}>
-        <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
-          <span style={{fontSize:11,fontWeight:700,color:G.moss}}>⬡ Latest</span>
-          <span style={{fontSize:11,color:G.dim}}>{data.insights[data.insights.length-1].date}</span>
+          {moreTab==="hist"&&<div>
+            {data.insights.length===0?<div style={{textAlign:"center",padding:"20px 12px",color:G.dim}}>
+              <div style={{fontSize:24,marginBottom:8}}>📊</div>
+              <div style={{fontSize:13,color:G.sub}}>No analyses yet — run your first one above.</div>
+            </div>:data.insights.slice().reverse().map(i=><Glass key={i.id} style={{marginBottom:8,borderRadius:14}}>
+              <div style={{fontSize:11,color:G.dim,marginBottom:4}}>{i.date}</div>
+              <div style={{fontSize:13,color:G.sub,lineHeight:1.5,whiteSpace:"pre-wrap"}}>{i.text}</div>
+            </Glass>)}
+          </div>}
+
+          {moreTab==="mem"&&<div>
+            {data.aiMemory.length===0?<div style={{textAlign:"center",padding:"20px 12px",color:G.dim}}>
+              <div style={{fontSize:24,marginBottom:8}}>🧠</div>
+              <div style={{fontSize:13,color:G.sub}}>No memory yet — run a full analysis to start building it.</div>
+            </div>:data.aiMemory.slice().reverse().map(m=><Glass key={m.id} style={{marginBottom:6,borderRadius:12}}>
+              <div style={{fontSize:11,color:G.dim}}>{m.date}</div>
+              <div style={{fontSize:13,color:G.sub,marginTop:2,lineHeight:1.5}}>{m.summary}</div>
+            </Glass>)}
+          </div>}
         </div>
-        <div style={{fontSize:13,color:G.sub,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{data.insights[data.insights.length-1].text}</div>
-      </Glass>}
-    </div>}
-
-    {/* History */}
-    {tab==="hist"&&<div>{data.insights.length===0?<div style={{textAlign:"center",padding:28,color:G.dim}}>No analyses yet</div>:data.insights.slice().reverse().map(i=><Glass key={i.id} style={{marginBottom:10,borderRadius:16}}><div style={{fontSize:11,color:G.dim,marginBottom:6}}>{i.date}</div><div style={{fontSize:13,color:G.sub,lineHeight:1.5,whiteSpace:"pre-wrap"}}>{i.text}</div></Glass>)}</div>}
-
-    {/* Memory */}
-    {tab==="mem"&&<div>
-      {data.aiMemory.length===0?<div style={{textAlign:"center",padding:28,color:G.dim}}>No memory yet</div>:data.aiMemory.slice().reverse().map(m=><Glass key={m.id} style={{marginBottom:6,borderRadius:14}}><div style={{fontSize:11,color:G.dim}}>{m.date}</div><div style={{fontSize:13,color:G.sub,marginTop:2}}>{m.summary}</div></Glass>)}
-    </div>}
+      </motion.div>}
+    </AnimatePresence>
   </div>;
 }

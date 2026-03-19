@@ -1,7 +1,8 @@
 // src/pages/Settings.jsx — Profile, API Key, Workout Builder, Stacks, Pain, PRs, Feedback, Data
 
 import { useState, useEffect, useRef } from "react";
-import { G, DEF, GOAL_OPTS } from "../theme.js";
+import { useTheme } from "../ThemeContext.jsx";
+import { DEF, GOAL_OPTS } from "../theme.js";
 import { td, uid, sv } from "../helpers.js";
 import { useVitalsIntel } from "../intel.js";
 import { Glass, Fld, Btn, Slider, EI } from "../components/Glass.jsx";
@@ -9,6 +10,7 @@ import { callClaude, getApiKey, setApiKey } from "../api.js";
 import { getData, setData as setStorageData } from "../storage.js";
 
 export default function Settings({data,setData}){
+  const {theme:G,mode,setMode}=useTheme();
   const intel=useVitalsIntel(data);
   const [open,setOpen]=useState({profile:false,targets:false,apikey:false,workout:false,stacks:false,pain:false,prs:false,feedback:false,data:false});
   const tog=(k)=>setOpen(o=>({...o,[k]:!o[k]}));
@@ -16,7 +18,6 @@ export default function Settings({data,setData}){
   const [pf,setPf]=useState({...data.profile});
   const [fbF,setFbF]=useState({type:"Bug",message:"",name:"",rating:"5"});const [fbSent,setFbSent]=useState(false);const [fbSending,setFbSending]=useState(false);
 
-  // Workout builder state
   const [wbF,setWbF]=useState({focus:"Full Body",duration:"60",equipment:"Full Gym",intensity:"Moderate",notes:""});
   const [wbLoading,setWbLoading]=useState(false);const [wbResult,setWbResult]=useState(null);const [wbErr,setWbErr]=useState(null);
   const [savedWorkouts,setSavedWorkouts]=useState([]);const [expandedId,setExpandedId]=useState(null);
@@ -38,7 +39,6 @@ export default function Settings({data,setData}){
   const delPain=(id)=>{const nd={...data,painLog:data.painLog.filter(p=>p.id!==id)};setData(nd);sv(nd);};
   const delPR=(id)=>{const nd={...data,prs:data.prs.filter(p=>p.id!==id)};setData(nd);sv(nd);};
 
-  // Workout builder
   const generateWorkout=async()=>{
     setWbLoading(true);setWbErr(null);setWbResult(null);
     try{
@@ -128,14 +128,27 @@ Format: [{"name":"Exercise Name","type":"Strength"|"Cardio"|"Plyometrics"|"Mobil
   </div>;
 
   return <div>
-    <div style={{fontSize:22,fontWeight:700,color:G.txt,marginBottom:18}}>Settings</div>
+    {/* ── Theme Picker ── */}
+    <Glass style={{marginBottom:14,padding:16,borderRadius:20}}>
+      <div style={{fontSize:13,fontWeight:700,color:G.sub,marginBottom:10}}>🎨 Appearance</div>
+      <div style={{display:"flex",background:G.glass2,borderRadius:12,padding:3,gap:2}}>
+        {[["light","☀️ Light"],["auto","Auto"],["dark","🌙 Dark"]].map(([m,l])=>
+          <button key={m} onClick={()=>setMode(m)}
+            style={{flex:1,padding:"8px 6px",border:"none",borderRadius:10,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",
+              background:mode===m?`linear-gradient(135deg,${G.gMoss[0]},${G.gMoss[1]})`:"transparent",
+              color:mode===m?"#fff":G.dim,transition:"all .2s"}}>
+            {l}
+          </button>
+        )}
+      </div>
+    </Glass>
 
     <Sect id="profile" label="Profile & Goals" icon="👤">
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:13,marginBottom:14}}>
-        <div><span style={{color:G.dim}}>Name:</span> <span style={{fontWeight:600}}>{p.name||"Not set"}</span></div>
-        <div><span style={{color:G.dim}}>Age:</span> <span style={{fontWeight:600}}>{p.age||"—"}</span></div>
-        <div><span style={{color:G.dim}}>Restrictions:</span> <span style={{fontWeight:600}}>{p.allergies||"None"}</span></div>
-        <div><span style={{color:G.dim}}>Units:</span> <span style={{fontWeight:600}}>{p.units||"imperial"}</span></div>
+        <div><span style={{color:G.dim}}>Name:</span> <span style={{fontWeight:600,color:G.txt}}>{p.name||"Not set"}</span></div>
+        <div><span style={{color:G.dim}}>Age:</span> <span style={{fontWeight:600,color:G.txt}}>{p.age||"—"}</span></div>
+        <div><span style={{color:G.dim}}>Restrictions:</span> <span style={{fontWeight:600,color:G.txt}}>{p.allergies||"None"}</span></div>
+        <div><span style={{color:G.dim}}>Units:</span> <span style={{fontWeight:600,color:G.txt}}>{p.units||"imperial"}</span></div>
       </div>
       {p.goals?.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:14}}>
         {p.goals.map((g,i)=><span key={i} style={{background:`${G.moss}15`,color:G.moss,borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:600}}>{g}</span>)}
@@ -284,7 +297,7 @@ Format: [{"name":"Exercise Name","type":"Strength"|"Cardio"|"Plyometrics"|"Mobil
         <input ref={impRef} type="file" accept=".json" style={{display:"none"}} onChange={e=>{if(e.target.files[0])imp(e.target.files[0]);}}/>
       </div>
       <Btn onClick={()=>{if(confirm("Delete ALL data? Cannot be undone.")){setData(DEF);sv(DEF);}}} v="danger" sx={{width:"100%"}}>Clear All Data</Btn>
-      <div style={{marginTop:14,fontSize:11,color:G.dim,lineHeight:1.6}}>Vitals v10 · IndexedDB · Claude AI · Data stored on device only.</div>
+      <div style={{marginTop:14,fontSize:11,color:G.dim,lineHeight:1.6}}>Vitals v10.1 · IndexedDB · Claude AI · Data stored on device only.</div>
     </Sect>
   </div>;
 }

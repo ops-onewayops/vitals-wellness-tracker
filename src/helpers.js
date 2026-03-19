@@ -10,3 +10,4 @@ export async function ld(){try{return await getData(SK);}catch{return null;}}
 export async function sv(d){try{await setStorageData(SK,d);}catch(e){console.error(e);}}
 export function toB64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);});}
 export function vo2(d,t){const m=d*1609.34;return Math.round(((m*(12/t)-504.9)/44.73)*10)/10;}
+export const haptic=(ms=50)=>{try{navigator?.vibrate?.(ms);}catch{}};

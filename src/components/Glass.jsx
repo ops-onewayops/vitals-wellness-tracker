@@ -1,13 +1,23 @@
 // src/components/Glass.jsx — Shared UI primitives
 
-import { G } from "../theme.js";
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { useTheme } from "../ThemeContext.jsx";
 
 export function Glass({children,style:sx={},onClick,glow}){
-  return <div style={{position:"relative",overflow:"hidden",...sx}} onClick={onClick}>
+  const {theme:G}=useTheme();
+  const inner=<div style={{position:"relative",zIndex:1,background:G.glass,backdropFilter:G.blur,WebkitBackdropFilter:G.blur,borderRadius:sx.borderRadius||20,border:`1px solid ${G.glassBorder}`,padding:sx.padding||18,height:"100%",boxSizing:"border-box"}}>
+    {children}
+  </div>;
+  if(onClick){
+    return <motion.div whileTap={{scale:0.98}} style={{position:"relative",overflow:"hidden",...sx,cursor:"pointer"}} onClick={onClick}>
+      {glow&&<div style={{position:"absolute",top:"-40%",left:"-20%",width:"140%",height:"140%",background:glow,filter:"blur(60px)",opacity:.35,pointerEvents:"none",zIndex:0}}/>}
+      {inner}
+    </motion.div>;
+  }
+  return <div style={{position:"relative",overflow:"hidden",...sx}}>
     {glow&&<div style={{position:"absolute",top:"-40%",left:"-20%",width:"140%",height:"140%",background:glow,filter:"blur(60px)",opacity:.35,pointerEvents:"none",zIndex:0}}/>}
-    <div style={{position:"relative",zIndex:1,background:G.glass,backdropFilter:G.blur,WebkitBackdropFilter:G.blur,borderRadius:sx.borderRadius||20,border:`1px solid ${G.glassBorder}`,padding:sx.padding||18,height:"100%",boxSizing:"border-box"}}>
-      {children}
-    </div>
+    {inner}
   </div>;
 }
 
@@ -20,17 +30,27 @@ export function GradCard({children,colors,style:sx={},onClick}){
 }
 
 export function Ring({pct,size=100,stroke=10,color,trackColor,children}){
-  const r=(size-stroke)/2;const circ=2*Math.PI*r;const off=circ-(Math.min(pct||0,100)/100)*circ;
+  const {theme:G}=useTheme();
+  const [animPct,setAnimPct]=useState(0);
+  useEffect(()=>{const t=setTimeout(()=>setAnimPct(pct||0),80);return()=>clearTimeout(t);},[pct]);
+  const r=(size-stroke)/2;const circ=2*Math.PI*r;const off=circ-(Math.min(animPct,100)/100)*circ;
   return <div style={{position:"relative",width:size,height:size}}>
     <svg width={size} height={size} style={{transform:"rotate(-90deg)",filter:`drop-shadow(0 0 8px ${color}40)`}}>
+      <defs>
+        <linearGradient id={`ringGrad${color?.replace(/[^a-z0-9]/gi,"")}`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor={color||G.moss} stopOpacity="1"/>
+          <stop offset="100%" stopColor={color||G.moss} stopOpacity="0.6"/>
+        </linearGradient>
+      </defs>
       <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={trackColor||G.muted} strokeWidth={stroke} opacity={.3}/>
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color||G.moss} strokeWidth={stroke} strokeDasharray={circ} strokeDashoffset={off} strokeLinecap="round" style={{transition:"stroke-dashoffset .8s ease"}}/>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={`url(#ringGrad${color?.replace(/[^a-z0-9]/gi,"")})`} strokeWidth={stroke} strokeDasharray={circ} strokeDashoffset={off} strokeLinecap="round" style={{transition:"stroke-dashoffset .8s ease"}}/>
     </svg>
     <div style={{position:"absolute",top:0,left:0,right:0,bottom:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>{children}</div>
   </div>;
 }
 
 export function Fld({label,type="text",value,set,opts,ph,min,max,step}){
+  const {theme:G}=useTheme();
   const s={width:"100%",background:G.glass2,border:`1px solid ${G.glassBorder}`,borderRadius:14,padding:"12px 14px",color:G.txt,fontSize:15,outline:"none",fontFamily:"inherit",boxSizing:"border-box"};
   return <div style={{marginBottom:14}}>
     {label&&<label style={{display:"block",fontSize:13,color:G.sub,marginBottom:6,fontWeight:600}}>{label}</label>}
@@ -41,11 +61,23 @@ export function Fld({label,type="text",value,set,opts,ph,min,max,step}){
 }
 
 export function Btn({children,onClick,v="primary",sx={},disabled}){
-  const vs={primary:{background:`linear-gradient(135deg,${G.gMoss[0]},${G.gMoss[1]})`,color:"#fff",border:"none",boxShadow:`0 4px 20px ${G.moss}30`},secondary:{background:G.glass2,color:G.txt,border:`1px solid ${G.glassBorder2}`,backdropFilter:G.blur},danger:{background:"rgba(255,77,106,0.12)",color:G.red,border:`1px solid rgba(255,77,106,0.15)`},ghost:{background:"transparent",color:G.moss,border:"none"}};
-  return <button style={{padding:"12px 20px",borderRadius:14,fontSize:14,fontWeight:600,cursor:disabled?"not-allowed":"pointer",fontFamily:"inherit",opacity:disabled?.5:1,...vs[v],...sx}} onClick={onClick} disabled={disabled}>{children}</button>;
+  const {theme:G}=useTheme();
+  const vs={
+    primary:{background:`linear-gradient(135deg,${G.gMoss[0]},${G.gMoss[1]})`,color:"#fff",border:"none",boxShadow:`0 4px 20px ${G.moss}30`},
+    secondary:{background:G.glass2,color:G.txt,border:`1px solid ${G.glassBorder2}`,backdropFilter:G.blur},
+    danger:{background:"rgba(255,77,106,0.12)",color:G.red,border:`1px solid rgba(255,77,106,0.15)`},
+    ghost:{background:"transparent",color:G.moss,border:"none"}
+  };
+  return <motion.button
+    whileTap={disabled?{}:{scale:0.96}}
+    style={{padding:"12px 20px",borderRadius:14,fontSize:14,fontWeight:600,cursor:disabled?"not-allowed":"pointer",fontFamily:"inherit",opacity:disabled?.5:1,...vs[v],...sx}}
+    onClick={onClick} disabled={disabled}>
+    {children}
+  </motion.button>;
 }
 
 export function Slider({label,value,set,min=1,max=10,color}){
+  const {theme:G}=useTheme();
   return <div style={{marginBottom:14}}>
     <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
       <span style={{fontSize:13,color:G.sub,fontWeight:600}}>{label}</span>
@@ -56,9 +88,10 @@ export function Slider({label,value,set,min=1,max=10,color}){
 }
 
 export function Modal({open,onClose,title,children}){
+  const {theme:G}=useTheme();
   if(!open)return null;
   return <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,zIndex:1100,background:"rgba(0,0,0,.6)",backdropFilter:"blur(12px)",WebkitBackdropFilter:"blur(12px)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
-    <div style={{width:"100%",maxWidth:480,maxHeight:"90vh",overflow:"auto",background:"#111218",borderRadius:"24px 24px 0 0",padding:"20px 22px 34px",border:`1px solid ${G.glassBorder2}`,borderBottom:"none",boxShadow:"0 -8px 40px rgba(0,0,0,.4)"}} onClick={e=>e.stopPropagation()}>
+    <div style={{width:"100%",maxWidth:480,maxHeight:"90vh",overflow:"auto",background:G.bg==="f6f5f1"?"#f0efe9":"#111218",borderRadius:"24px 24px 0 0",padding:"20px 22px 34px",border:`1px solid ${G.glassBorder2}`,borderBottom:"none",boxShadow:"0 -8px 40px rgba(0,0,0,.4)"}} onClick={e=>e.stopPropagation()}>
       <div style={{width:40,height:4,borderRadius:2,background:G.muted,margin:"0 auto 18px"}}/>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
         <h3 style={{margin:0,fontSize:20,fontWeight:700,color:G.txt}}>{title}</h3>
@@ -69,6 +102,7 @@ export function Modal({open,onClose,title,children}){
 }
 
 export function EI({primary,secondary,tertiary,onDelete,color}){
+  const {theme:G}=useTheme();
   return <div style={{display:"flex",alignItems:"center",padding:"12px 14px",background:G.glass,backdropFilter:G.blur,WebkitBackdropFilter:G.blur,borderRadius:14,marginBottom:6,border:`1px solid ${G.glassBorder}`,borderLeft:color?`3px solid ${color}`:undefined}}>
     <div style={{flex:1}}><div style={{fontSize:14,color:G.txt,fontWeight:500}}>{primary}</div>{secondary&&<div style={{fontSize:12,color:G.dim,marginTop:2}}>{secondary}</div>}</div>
     {tertiary&&<div style={{fontSize:17,fontWeight:700,color:color||G.moss,marginRight:onDelete?10:0}}>{tertiary}</div>}
@@ -77,6 +111,7 @@ export function EI({primary,secondary,tertiary,onDelete,color}){
 }
 
 export function Section({title,action,onAction,children}){
+  const {theme:G}=useTheme();
   return <div style={{marginBottom:28}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
     <h2 style={{fontSize:22,fontWeight:700,color:G.txt,margin:0}}>{title}</h2>
     {action&&<Btn onClick={onAction} v="ghost" sx={{fontSize:13,padding:"6px 14px"}}>{action}</Btn>}</div>{children}</div>;

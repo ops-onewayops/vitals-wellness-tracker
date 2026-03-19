@@ -1,19 +1,19 @@
 // src/pages/Log.jsx — Unified logging screen
 
 import { useState, useRef, useEffect } from "react";
-import { G, PAIN_LOCS, PAIN_TYPES, SUPP_LIST } from "../theme.js";
-import { td, uid, sv, toB64, vo2 } from "../helpers.js";
+import { motion } from "framer-motion";
+import { useTheme } from "../ThemeContext.jsx";
+import { PAIN_LOCS, PAIN_TYPES, SUPP_LIST } from "../theme.js";
+import { td, uid, sv, toB64, vo2, haptic } from "../helpers.js";
 import { Glass, Fld, Btn, Slider, EI } from "../components/Glass.jsx";
 import { callClaude } from "../api.js";
 
 export default function Log({data,setData,initialForm}){
+  const {theme:G}=useTheme();
   const [active,setActive]=useState(initialForm||null);
   const today=td();
-  // AI text entry
   const [aiText,setAiText]=useState("");const [aiTextL,setAiTextL]=useState(false);const [aiTextItems,setAiTextItems]=useState([]);
-  // Photo snap
   const photoRef=useRef();const [photoL,setPhotoL]=useState(false);
-  // Form states
   const [mealF,setMealF]=useState({meal:"Lunch",food:"",calories:"",protein:"",carbs:"",fat:"",date:today});
   const [exF,setExF]=useState({type:"Strength",name:"",sets:"",reps:"",weight:"",duration:"",distance:"",notes:"",date:today});
   const [exSearch,setExSearch]=useState("");
@@ -26,7 +26,6 @@ export default function Log({data,setData,initialForm}){
   const [pwF,setPwF]=useState({rpe:"7",mood:"Good",energy:"7",pump:"7",soreness:"",notes:"",date:today});
   const [healthL,setHealthL]=useState(false);const [healthR,setHealthR]=useState(null);const healthFileRef=useRef();
 
-  // Open initialForm when prop changes
   useEffect(()=>{if(initialForm)setActive(initialForm);},[initialForm]);
 
   const pastExercises=[...new Set(data.training.map(t=>t.name).filter(Boolean))];
@@ -49,21 +48,21 @@ Return ONLY valid JSON array: [{"food":"item with portion","calories":N,"protein
     setActive("meal");
   }catch(e){setAiTextItems([{error:e.message||"Failed."}]);}setPhotoL(false);};
 
-  const addAiItem=(item)=>{const entry={meal:mealF.meal,food:item.food,calories:String(item.calories||0),protein:String(item.protein||0),carbs:String(item.carbs||0),fat:String(item.fat||0),date:today,id:uid()};const nd={...data,nutrition:[...data.nutrition,entry]};setData(nd);sv(nd);};
-  const addAllAiItems=()=>{const entries=aiTextItems.filter(i=>!i.error).map(item=>({meal:mealF.meal,food:item.food,calories:String(item.calories||0),protein:String(item.protein||0),carbs:String(item.carbs||0),fat:String(item.fat||0),date:today,id:uid()}));const nd={...data,nutrition:[...data.nutrition,...entries]};setData(nd);sv(nd);setAiText("");setAiTextItems([]);};
+  const addAiItem=(item)=>{const entry={meal:mealF.meal,food:item.food,calories:String(item.calories||0),protein:String(item.protein||0),carbs:String(item.carbs||0),fat:String(item.fat||0),date:today,id:uid()};const nd={...data,nutrition:[...data.nutrition,entry]};setData(nd);sv(nd);haptic();};
+  const addAllAiItems=()=>{const entries=aiTextItems.filter(i=>!i.error).map(item=>({meal:mealF.meal,food:item.food,calories:String(item.calories||0),protein:String(item.protein||0),carbs:String(item.carbs||0),fat:String(item.fat||0),date:today,id:uid()}));const nd={...data,nutrition:[...data.nutrition,...entries]};setData(nd);sv(nd);setAiText("");setAiTextItems([]);haptic();};
 
-  const addMeal=()=>{if(!mealF.food)return;const nd={...data,nutrition:[...data.nutrition,{...mealF,id:uid()}]};setData(nd);sv(nd);setMealF({meal:"Lunch",food:"",calories:"",protein:"",carbs:"",fat:"",date:today});setActive(null);};
-  const repeatMeal=(m)=>{const entry={...m,date:today,id:uid()};const nd={...data,nutrition:[...data.nutrition,entry]};setData(nd);sv(nd);};
-  const addExercise=()=>{if(!exF.name)return;const e={...exF,id:uid()};const nd={...data,training:[...data.training,e]};setData(nd);sv(nd);setExF({type:"Strength",name:"",sets:"",reps:"",weight:"",duration:"",distance:"",notes:"",date:today});setExSearch("");setActive(null);};
-  const addWater=()=>{const nd={...data,hydration:[...data.hydration,{...waterF,id:uid()}]};setData(nd);sv(nd);setWaterF({oz:"16",type:"Water",date:today,time:new Date().toTimeString().slice(0,5)});setActive(null);};
-  const quickWater=(oz)=>{const nd={...data,hydration:[...data.hydration,{oz:String(oz),type:"Water",date:today,time:new Date().toTimeString().slice(0,5),id:uid()}]};setData(nd);sv(nd);};
-  const addSupp=()=>{if(!suppF.name)return;const nd={...data,supplements:[...data.supplements,{...suppF,id:uid()}]};setData(nd);sv(nd);setSuppF({name:"Creatine",dosage:"",timing:"Morning",date:today});setActive(null);};
-  const logStack=(stack)=>{const entries=stack.items.map(item=>({...item,date:today,id:uid()}));const nd={...data,supplements:[...data.supplements,...entries]};setData(nd);sv(nd);};
-  const addSleep=()=>{if(!sleepF.hours)return;const nd={...data,sleep:[...data.sleep,{...sleepF,id:uid()}]};setData(nd);sv(nd);setSleepF({hours:"",quality:"Good",bedtime:"",wakeTime:"",notes:"",date:today});setActive(null);};
-  const addBody=()=>{let v2=null;if(bodyF.cardioDistance&&bodyF.cardioDuration)v2=vo2(Number(bodyF.cardioDistance),Number(bodyF.cardioDuration));const nd={...data,bodyMetrics:[...data.bodyMetrics,{...bodyF,vo2max:v2,id:uid()}]};setData(nd);sv(nd);setBodyF({weight:"",bodyFat:"",chest:"",waist:"",arms:"",thighs:"",cardioDistance:"",cardioDuration:"",date:today});setActive(null);};
-  const addMood=()=>{const nd={...data,lifestyle:[...data.lifestyle,{...moodF,id:uid()}]};setData(nd);sv(nd);setMoodF({energy:"7",stress:"4",mood:"Good",steps:"",notes:"",date:today});setActive(null);};
-  const addPain=()=>{if(!painF.location)return;const nd={...data,painLog:[...data.painLog,{...painF,id:uid(),resolved:false}]};setData(nd);sv(nd);setPainF({location:"",type:"Dull/Aching",severity:"5",during:"",notes:"",date:today});setActive(null);};
-  const addPW=()=>{const nd={...data,postWorkout:[...data.postWorkout,{...pwF,id:uid()}]};setData(nd);sv(nd);setPwF({rpe:"7",mood:"Good",energy:"7",pump:"7",soreness:"",notes:"",date:today});setActive(null);};
+  const addMeal=()=>{if(!mealF.food)return;const nd={...data,nutrition:[...data.nutrition,{...mealF,id:uid()}]};setData(nd);sv(nd);haptic();setMealF({meal:"Lunch",food:"",calories:"",protein:"",carbs:"",fat:"",date:today});setActive(null);};
+  const repeatMeal=(m)=>{const entry={...m,date:today,id:uid()};const nd={...data,nutrition:[...data.nutrition,entry]};setData(nd);sv(nd);haptic();};
+  const addExercise=()=>{if(!exF.name)return;const e={...exF,id:uid()};const nd={...data,training:[...data.training,e]};setData(nd);sv(nd);haptic();setExF({type:"Strength",name:"",sets:"",reps:"",weight:"",duration:"",distance:"",notes:"",date:today});setExSearch("");setActive(null);};
+  const addWater=()=>{const nd={...data,hydration:[...data.hydration,{...waterF,id:uid()}]};setData(nd);sv(nd);haptic();setWaterF({oz:"16",type:"Water",date:today,time:new Date().toTimeString().slice(0,5)});setActive(null);};
+  const quickWater=(oz)=>{const nd={...data,hydration:[...data.hydration,{oz:String(oz),type:"Water",date:today,time:new Date().toTimeString().slice(0,5),id:uid()}]};setData(nd);sv(nd);haptic();};
+  const addSupp=()=>{if(!suppF.name)return;const nd={...data,supplements:[...data.supplements,{...suppF,id:uid()}]};setData(nd);sv(nd);haptic();setSuppF({name:"Creatine",dosage:"",timing:"Morning",date:today});setActive(null);};
+  const logStack=(stack)=>{const entries=stack.items.map(item=>({...item,date:today,id:uid()}));const nd={...data,supplements:[...data.supplements,...entries]};setData(nd);sv(nd);haptic();};
+  const addSleep=()=>{if(!sleepF.hours)return;const nd={...data,sleep:[...data.sleep,{...sleepF,id:uid()}]};setData(nd);sv(nd);haptic();setSleepF({hours:"",quality:"Good",bedtime:"",wakeTime:"",notes:"",date:today});setActive(null);};
+  const addBody=()=>{let v2=null;if(bodyF.cardioDistance&&bodyF.cardioDuration)v2=vo2(Number(bodyF.cardioDistance),Number(bodyF.cardioDuration));const nd={...data,bodyMetrics:[...data.bodyMetrics,{...bodyF,vo2max:v2,id:uid()}]};setData(nd);sv(nd);haptic();setBodyF({weight:"",bodyFat:"",chest:"",waist:"",arms:"",thighs:"",cardioDistance:"",cardioDuration:"",date:today});setActive(null);};
+  const addMood=()=>{const nd={...data,lifestyle:[...data.lifestyle,{...moodF,id:uid()}]};setData(nd);sv(nd);haptic();setMoodF({energy:"7",stress:"4",mood:"Good",steps:"",notes:"",date:today});setActive(null);};
+  const addPain=()=>{if(!painF.location)return;const nd={...data,painLog:[...data.painLog,{...painF,id:uid(),resolved:false}]};setData(nd);sv(nd);haptic();setPainF({location:"",type:"Dull/Aching",severity:"5",during:"",notes:"",date:today});setActive(null);};
+  const addPW=()=>{const nd={...data,postWorkout:[...data.postWorkout,{...pwF,id:uid()}]};setData(nd);sv(nd);haptic();setPwF({rpe:"7",mood:"Good",energy:"7",pump:"7",soreness:"",notes:"",date:today});setActive(null);};
 
   const analyzeHealth=async(file)=>{setHealthL(true);setHealthR(null);try{const b64=await toB64(file);const bd=b64.split(",")[1];
     const txt=await callClaude({system:`Extract health data from Apple Health screenshots. JSON only:
@@ -78,7 +77,7 @@ Return ONLY valid JSON array: [{"food":"item with portion","calories":N,"protein
     else if(parsed.type==="respiratory")nd.respiratory=[...nd.respiratory,entry];
     else if(parsed.type==="steps")nd.stepsData=[...nd.stepsData,entry];
     else if(parsed.type==="workout")nd.watchWorkouts=[...nd.watchWorkouts,entry];
-    nd.healthImports=[...nd.healthImports,{id:uid(),date:today,type:parsed.type,summary:parsed.summary}];setData(nd);sv(nd);
+    nd.healthImports=[...nd.healthImports,{id:uid(),date:today,type:parsed.type,summary:parsed.summary}];setData(nd);sv(nd);haptic();
   }catch(e){setHealthR({error:e.message||"Failed."});}setHealthL(false);};
 
   const cats=[
@@ -95,7 +94,6 @@ Return ONLY valid JSON array: [{"food":"item with portion","calories":N,"protein
   ];
   const toggle=(id)=>setActive(a=>a===id?null:id);
 
-  // Build today feed
   const todayFeed=[];
   data.nutrition.filter(n=>n.date===today).forEach(n=>todayFeed.push({k:n.id,label:n.food,sub:`${n.meal} · ${n.calories||0}cal · P:${n.protein||0}g`,icon:"🍽️",color:G.moss}));
   data.training.filter(t=>t.date===today).forEach(t=>todayFeed.push({k:t.id,label:t.name,sub:t.type==="Strength"?`${t.sets||""}×${t.reps||""}@${t.weight||""}lbs`:`${t.type} · ${t.duration||""}min`,icon:"💪",color:G.orange}));
@@ -150,12 +148,17 @@ Return ONLY valid JSON array: [{"food":"item with portion","calories":N,"protein
 
     {/* Category Grid */}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:2}}>
-      {cats.map(cat=><button key={cat.id} onClick={()=>toggle(cat.id)}
-        style={{background:active===cat.id?`${cat.color}18`:G.glass,border:`1px solid ${active===cat.id?cat.color+"35":G.glassBorder}`,borderRadius:16,padding:"12px 10px",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:8,transition:"all .15s"}}>
+      {cats.map((cat,idx)=><motion.button
+        key={cat.id}
+        initial={{opacity:0,y:10}}
+        animate={{opacity:1,y:0}}
+        transition={{delay:idx*0.04,duration:0.2}}
+        onClick={()=>toggle(cat.id)}
+        style={{background:active===cat.id?`${cat.color}18`:G.glass,border:`1px solid ${active===cat.id?cat.color+"35":G.glassBorder}`,borderRadius:16,padding:"12px 10px",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",gap:8,transition:"background .15s, border-color .15s"}}>
         <span style={{fontSize:20,filter:active===cat.id?`drop-shadow(0 0 8px ${cat.color}60)`:"none"}}>{cat.icon}</span>
         <span style={{fontSize:13,fontWeight:600,color:active===cat.id?cat.color:G.sub}}>{cat.label}</span>
         <span style={{marginLeft:"auto",fontSize:11,color:active===cat.id?cat.color:G.dim}}>{active===cat.id?"▲":"▼"}</span>
-      </button>)}
+      </motion.button>)}
     </div>
 
     {/* Inline Forms */}
@@ -188,7 +191,7 @@ Return ONLY valid JSON array: [{"food":"item with portion","calories":N,"protein
         <label style={{display:"block",fontSize:13,color:G.sub,marginBottom:6,fontWeight:600}}>Exercise</label>
         <input value={exF.name} onChange={e=>{setExF({...exF,name:e.target.value});setExSearch(e.target.value);}}
           placeholder="e.g. Squat" style={{width:"100%",background:G.glass2,border:`1px solid ${G.glassBorder}`,borderRadius:14,padding:"12px 14px",color:G.txt,fontSize:15,outline:"none",fontFamily:"inherit",boxSizing:"border-box"}}/>
-        {exSuggestions.length>0&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:"#1a1b26",border:`1px solid ${G.glassBorder2}`,borderRadius:12,zIndex:50,overflow:"hidden"}}>
+        {exSuggestions.length>0&&<div style={{position:"absolute",top:"100%",left:0,right:0,background:G.bg==="f6f5f1"?"#f0efe9":"#1a1b26",border:`1px solid ${G.glassBorder2}`,borderRadius:12,zIndex:50,overflow:"hidden"}}>
           {exSuggestions.map((s,i)=><button key={i} onClick={()=>{setExF({...exF,name:s});setExSearch("");}}
             style={{width:"100%",padding:"10px 14px",background:"transparent",border:"none",color:G.sub,fontSize:13,cursor:"pointer",fontFamily:"inherit",textAlign:"left",borderBottom:i<exSuggestions.length-1?`1px solid ${G.glassBorder}`:"none"}}>{s}</button>)}
         </div>}
