@@ -67,14 +67,14 @@ export async function deleteData(key) {
   });
 }
 
-// Export/import for backup
+// Export/import for backup — fixed key (was incorrectly 'vitals-v4')
 export async function exportAllData() {
-  const data = await getData('vitals-v4');
+  const data = await getData('vitals-v5');
   return JSON.stringify(data, null, 2);
 }
 
 export async function importData(jsonString) {
   const data = JSON.parse(jsonString);
-  await setData('vitals-v4', data);
+  await setData('vitals-v5', data);
   return data;
 }

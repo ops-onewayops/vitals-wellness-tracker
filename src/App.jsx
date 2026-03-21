@@ -1,15 +1,15 @@
-// src/App.jsx — Shell: data loading, routing, nav, toast (v10.1)
+// src/App.jsx — Shell: data loading, routing, nav, toast (v10.2)
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ThemeProvider, useTheme } from "./ThemeContext.jsx";
 import { DEF } from "./theme.js";
-import { ld, sv, td, uid, haptic } from "./helpers.js";
+import { ld, sv, td, uid, haptic, deleteEntry } from "./helpers.js";
+import { T, SPECTRUM } from "./themes.js";
 import Data from "./pages/Data.jsx";
 import Log from "./pages/Log.jsx";
 import Coach from "./pages/Coach.jsx";
 import Settings from "./pages/Settings.jsx";
-import Onboarding from "./pages/Onboarding.jsx";
 import BottomNav from "./components/BottomNav.jsx";
 import Toast from "./components/Toast.jsx";
 
@@ -20,6 +20,24 @@ function AppInner() {
   const [initialForm, setInitialForm] = useState(null);
   const [ok, setOk] = useState(false);
   const [toast, setToast] = useState(null);
+
+  // Easter egg: tap "Vitals" wordmark 5× to trigger prism animation
+  const wordmarkTaps = useRef(0);
+  const wordmarkTimer = useRef(null);
+  const [wordmarkPrism, setWordmarkPrism] = useState(false);
+
+  const handleWordmarkTap = () => {
+    wordmarkTaps.current += 1;
+    clearTimeout(wordmarkTimer.current);
+    if (wordmarkTaps.current >= 5) {
+      wordmarkTaps.current = 0;
+      setWordmarkPrism(true);
+      haptic(100);
+      setTimeout(() => setWordmarkPrism(false), 3000);
+    } else {
+      wordmarkTimer.current = setTimeout(() => { wordmarkTaps.current = 0; }, 1200);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -63,18 +81,20 @@ function AppInner() {
     haptic(30);
   };
 
-  // Onboarding — show when loaded but no profile name yet
-  if (ok && !data.profile.name) return (
-    <Onboarding onComplete={(profile) => {
-      const nd = { ...data, profile: { ...data.profile, ...profile } };
-      setData(nd); sv(nd);
-    }} />
-  );
+  const deleteItem = (arrayKey, entryId) => {
+    const nd = deleteEntry(data, arrayKey, entryId);
+    setData(nd); sv(nd); haptic(30);
+    setToast({ message: "Removed", color: G.dim });
+  };
 
   // Skeleton loading
   if (!ok) return (
-    <div style={{ background: G.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
-      <div style={{ color: G.moss, fontSize: 28, fontWeight: 800, letterSpacing: -1 }}>Vitals</div>
+    <div style={{ background: G.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 20 }}>
+      <div style={{ position: "relative" }}>
+        <div style={{ ...T.heading, color: G.moss, letterSpacing: 1, cursor: "default" }}>Vitals</div>
+        {/* Prism line under wordmark on load */}
+        <div style={{ height: 2, borderRadius: 1, background: SPECTRUM, marginTop: 4, opacity: 0.5 }} />
+      </div>
       <div style={{ display: "flex", gap: 6 }}>
         {[0, 1, 2].map(i => <motion.div key={i}
           style={{ width: 6, height: 6, borderRadius: 3, background: G.moss }}
@@ -89,8 +109,8 @@ function AppInner() {
 
   const renderPage = () => {
     if (page === "coach") return <Coach data={data} setData={setData} go={go} />;
-    if (page === "data") return <Data data={data} setData={setData} go={go} onQuickLog={quickLog} />;
-    if (page === "log") return <Log data={data} setData={setData} initialForm={initialForm} />;
+    if (page === "data") return <Data data={data} go={go} onQuickLog={quickLog} onDelete={deleteItem} />;
+    if (page === "log") return <Log data={data} setData={setData} initialForm={initialForm} onDelete={deleteItem} />;
     if (page === "settings") return <Settings data={data} setData={setData} />;
     return <Coach data={data} setData={setData} go={go} />;
   };
@@ -98,21 +118,62 @@ function AppInner() {
   return (
     <div style={{ background: G.bg, minHeight: "100vh", fontFamily: "'Inter',sans-serif", color: G.txt, maxWidth: 480, margin: "0 auto", position: "relative", paddingBottom: 80 }}>
 
-      {/* Header — hidden on Coach page (Coach has its own ambient header) */}
+      {/* Wordmark prism easter egg overlay */}
+      <AnimatePresence>
+        {wordmarkPrism && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            style={{
+              position: "fixed", inset: 0, zIndex: 9999, pointerEvents: "none",
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              background: "rgba(0,0,0,0.95)",
+            }}>
+            <motion.div
+              initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.6, opacity: 0 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+              style={{ fontSize: 88, lineHeight: 1, marginBottom: 24, filter: "drop-shadow(0 0 48px rgba(180,142,255,0.7))" }}>◭</motion.div>
+            <motion.div
+              initial={{ scaleX: 0, opacity: 0 }} animate={{ scaleX: 1, opacity: 1 }} exit={{ scaleX: 0, opacity: 0 }}
+              transition={{ duration: 0.6, delay: 0.25, ease: "easeOut" }}
+              style={{
+                width: "70%", maxWidth: 260, height: 5, borderRadius: 3,
+                background: SPECTRUM,
+                boxShadow: "0 0 28px rgba(180,142,255,0.55), 0 0 52px rgba(45,211,111,0.25)",
+                transformOrigin: "left center",
+              }} />
+            <motion.div
+              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              transition={{ delay: 0.6, duration: 0.3 }}
+              style={{ marginTop: 28, ...T.nano, color: "rgba(255,255,255,0.4)", letterSpacing: 3 }}>
+              VITALS
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Header — hidden on Coach page */}
       {!isCoach && (
         <div style={{
-          padding: "16px 20px 12px", display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "calc(env(safe-area-inset-top) + 14px) 20px 12px",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
           position: "sticky", top: 0, zIndex: 100,
-          background: `${G.bg}dd`, backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+          background: `${G.bg}e8`,
+          backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
           borderBottom: `1px solid ${G.glassBorder}`,
         }}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: G.txt, letterSpacing: -.5 }}>{tabTitle[page] || "Vitals"}</div>
+          {/* Wordmark — tap 5x for easter egg */}
+          <div onClick={handleWordmarkTap} style={{ cursor: "default", userSelect: "none" }}>
+            <div style={{ ...T.subhead, color: G.txt, letterSpacing: 0.5 }}>{tabTitle[page] || "Vitals"}</div>
+          </div>
           {page === "data" && (
-            <button onClick={() => go("log")} style={{
+            <motion.button whileTap={{ scale: 0.95 }} onClick={() => go("log")} style={{
               background: `linear-gradient(135deg,${G.gMoss[0]},${G.gMoss[1]})`, color: "#fff",
-              border: "none", borderRadius: 20, padding: "6px 16px", fontSize: 12, fontWeight: 600,
-              cursor: "pointer", fontFamily: "inherit", boxShadow: `0 4px 20px ${G.moss}30`,
-            }}>+ Log</button>
+              border: "none", borderRadius: 20, padding: "6px 18px",
+              ...T.nano, letterSpacing: 0.5,
+              cursor: "pointer", fontFamily: "inherit",
+              boxShadow: `0 4px 16px ${G.moss}30`,
+            }}>+ LOG</motion.button>
           )}
         </div>
       )}

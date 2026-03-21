@@ -1,34 +1,27 @@
-// Anthropic API helper
-// Your API key is stored in localStorage (never sent anywhere except Anthropic).
-// In a production app you'd proxy this through a backend, but for a personal
-// single-user app this is fine.
+// Local Backend Proxy helper for iOS App Store Compliance
+// The API key is securely held by the server.
 
-const API_URL = 'https://api.anthropic.com/v1/messages';
+const PROXY_URL = '/api/chat';
 const MODEL = 'claude-sonnet-4-20250514';
 
 export function getApiKey() {
-  return localStorage.getItem('vitals-anthropic-key') || '';
+  return 'proxy-auth-token-placeholder'; // In production, this would be an auth token (e.g. Sign in with Apple)
 }
 
 export function setApiKey(key) {
-  localStorage.setItem('vitals-anthropic-key', key);
+  // no-op
 }
 
 export function hasApiKey() {
-  return !!getApiKey();
+  return true; // We assume the backend handles auth implicitly for now
 }
 
 export async function callClaude({ system, messages, maxTokens = 1000 }) {
-  const key = getApiKey();
-  if (!key) throw new Error('No API key set. Go to Settings to add your Anthropic API key.');
-
-  const response = await fetch(API_URL, {
+  const response = await fetch(PROXY_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
+      // 'Authorization': `Bearer ${getApiKey()}` // Placeholder for future auth
     },
     body: JSON.stringify({
       model: MODEL,
@@ -40,7 +33,7 @@ export async function callClaude({ system, messages, maxTokens = 1000 }) {
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    throw new Error(err.error?.message || `API error: ${response.status}`);
+    throw new Error(err.error || `Proxy error: ${response.status}`);
   }
 
   const data = await response.json();

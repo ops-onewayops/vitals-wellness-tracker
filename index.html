@@ -6,19 +6,16 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Vitals" />
-    <meta name="theme-color" content="#06070b" />
+    <meta name="theme-color" content="#000000" />
     <link rel="manifest" href="/manifest.json" />
     <title>Vitals — Wellness Tracker</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-      body { background: #06070b; font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; -webkit-font-smoothing: antialiased; overscroll-behavior-y: none; }
+      body { background: #000000; font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; -webkit-font-smoothing: antialiased; overscroll-behavior-y: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
       html { scroll-behavior: smooth; }
-      /* Safe area padding for notched devices */
-      body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+      /* Native layout handles safe areas per-component */
     </style>
   </head>
-  <body>
-    <div id="root"></div>
     <script type="module" src="./src/main.jsx"></script>
     <script>
       if ('serviceWorker' in navigator) {

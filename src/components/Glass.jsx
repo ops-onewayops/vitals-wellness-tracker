@@ -1,8 +1,9 @@
-// src/components/Glass.jsx — Shared UI primitives
+// src/components/Glass.jsx — Shared UI primitives (v10.2)
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useTheme } from "../ThemeContext.jsx";
+import { T } from "../themes.js";
 
 export function Glass({children,style:sx={},onClick,glow}){
   const {theme:G}=useTheme();
@@ -51,11 +52,11 @@ export function Ring({pct,size=100,stroke=10,color,trackColor,children}){
 
 export function Fld({label,type="text",value,set,opts,ph,min,max,step}){
   const {theme:G}=useTheme();
-  const s={width:"100%",background:G.glass2,border:`1px solid ${G.glassBorder}`,borderRadius:14,padding:"12px 14px",color:G.txt,fontSize:15,outline:"none",fontFamily:"inherit",boxSizing:"border-box"};
+  const s={width:"100%",background:G.glass2,border:`1px solid ${G.glassBorder}`,borderRadius:14,padding:"12px 16px",color:G.txt,...T.bodyMed,outline:"none",fontFamily:"inherit",boxSizing:"border-box"};
   return <div style={{marginBottom:14}}>
-    {label&&<label style={{display:"block",fontSize:13,color:G.sub,marginBottom:6,fontWeight:600}}>{label}</label>}
+    {label&&<label style={{display:"block",...T.caption,fontWeight:600,color:G.sub,marginBottom:6}}>{label}</label>}
     {opts?<select style={s} value={value} onChange={e=>set(e.target.value)}><option value="">Select...</option>{opts.map(o=><option key={o.value||o} value={o.value||o}>{o.label||o}</option>)}</select>
-      :type==="textarea"?<textarea style={{...s,minHeight:60,resize:"vertical"}} value={value} onChange={e=>set(e.target.value)} placeholder={ph}/>
+      :type==="textarea"?<textarea style={{...s,minHeight:64,resize:"vertical"}} value={value} onChange={e=>set(e.target.value)} placeholder={ph}/>
         :<input style={s} type={type} value={value} onChange={e=>set(e.target.value)} placeholder={ph} min={min} max={max} step={step}/>}
   </div>;
 }
@@ -63,14 +64,15 @@ export function Fld({label,type="text",value,set,opts,ph,min,max,step}){
 export function Btn({children,onClick,v="primary",sx={},disabled}){
   const {theme:G}=useTheme();
   const vs={
-    primary:{background:`linear-gradient(135deg,${G.gMoss[0]},${G.gMoss[1]})`,color:"#fff",border:"none",boxShadow:`0 4px 20px ${G.moss}30`},
+    primary:{background:`linear-gradient(135deg,${G.gMoss[0]},${G.gMoss[1]})`,color:"#fff",border:"none",boxShadow:`0 4px 18px ${G.moss}32`},
     secondary:{background:G.glass2,color:G.txt,border:`1px solid ${G.glassBorder2}`,backdropFilter:G.blur},
     danger:{background:"rgba(255,77,106,0.12)",color:G.red,border:`1px solid rgba(255,77,106,0.15)`},
     ghost:{background:"transparent",color:G.moss,border:"none"}
   };
   return <motion.button
     whileTap={disabled?{}:{scale:0.96}}
-    style={{padding:"12px 20px",borderRadius:14,fontSize:14,fontWeight:600,cursor:disabled?"not-allowed":"pointer",fontFamily:"inherit",opacity:disabled?.5:1,...vs[v],...sx}}
+    transition={{type:"spring",stiffness:420,damping:18}}
+    style={{padding:"12px 22px",borderRadius:14,...T.bodyMed,cursor:disabled?"not-allowed":"pointer",fontFamily:"inherit",opacity:disabled?.5:1,...vs[v],...sx}}
     onClick={onClick} disabled={disabled}>
     {children}
   </motion.button>;
@@ -104,15 +106,22 @@ export function Modal({open,onClose,title,children}){
 export function EI({primary,secondary,tertiary,onDelete,color}){
   const {theme:G}=useTheme();
   return <div style={{display:"flex",alignItems:"center",padding:"12px 14px",background:G.glass,backdropFilter:G.blur,WebkitBackdropFilter:G.blur,borderRadius:14,marginBottom:6,border:`1px solid ${G.glassBorder}`,borderLeft:color?`3px solid ${color}`:undefined}}>
-    <div style={{flex:1}}><div style={{fontSize:14,color:G.txt,fontWeight:500}}>{primary}</div>{secondary&&<div style={{fontSize:12,color:G.dim,marginTop:2}}>{secondary}</div>}</div>
-    {tertiary&&<div style={{fontSize:17,fontWeight:700,color:color||G.moss,marginRight:onDelete?10:0}}>{tertiary}</div>}
+    <div style={{flex:1}}>
+      <div style={{...T.bodyMed,color:G.txt}}>{primary}</div>
+      {secondary&&<div style={{...T.caption,color:G.dim,marginTop:2}}>{secondary}</div>}
+    </div>
+    {tertiary&&<div style={{fontSize:16,fontWeight:700,color:color||G.moss,marginRight:onDelete?10:0,letterSpacing:-0.3}}>{tertiary}</div>}
     {onDelete&&<button onClick={e=>{e.stopPropagation();onDelete();}} style={{background:G.glass2,border:"none",width:26,height:26,borderRadius:13,color:G.dim,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>}
   </div>;
 }
 
 export function Section({title,action,onAction,children}){
   const {theme:G}=useTheme();
-  return <div style={{marginBottom:28}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-    <h2 style={{fontSize:22,fontWeight:700,color:G.txt,margin:0}}>{title}</h2>
-    {action&&<Btn onClick={onAction} v="ghost" sx={{fontSize:13,padding:"6px 14px"}}>{action}</Btn>}</div>{children}</div>;
+  return <div style={{marginBottom:28}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+      <h2 style={{...T.heading,color:G.txt,margin:0}}>{title}</h2>
+      {action&&<Btn onClick={onAction} v="ghost" sx={{...T.caption,padding:"6px 14px"}}>{action}</Btn>}
+    </div>
+    {children}
+  </div>;
 }

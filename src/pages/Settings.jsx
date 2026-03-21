@@ -1,303 +1,440 @@
-// src/pages/Settings.jsx — Profile, API Key, Workout Builder, Stacks, Pain, PRs, Feedback, Data
+// src/pages/Settings.jsx — v10.4: Page-based navigation, SVG icons, no accordions
 
 import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "../ThemeContext.jsx";
 import { DEF, GOAL_OPTS } from "../theme.js";
 import { td, uid, sv } from "../helpers.js";
-import { useVitalsIntel } from "../intel.js";
 import { Glass, Fld, Btn, Slider, EI } from "../components/Glass.jsx";
-import { callClaude, getApiKey, setApiKey } from "../api.js";
-import { getData, setData as setStorageData } from "../storage.js";
+import { getApiKey, setApiKey } from "../api.js";
+import {
+  IconUser, IconTarget, IconKey, IconPill, IconAlertCircle,
+  IconTrophy, IconMessage, IconDatabase, IconSun, IconMoon,
+  IconSave, IconDownload, IconUpload, IconTrash, IconCheck,
+  IconChevronRight, IconChevronLeft, IconX,
+} from "../components/Icons.jsx";
 
-export default function Settings({data,setData}){
-  const {theme:G,mode,setMode}=useTheme();
-  const intel=useVitalsIntel(data);
-  const [open,setOpen]=useState({profile:false,targets:false,apikey:false,workout:false,stacks:false,pain:false,prs:false,feedback:false,data:false});
-  const tog=(k)=>setOpen(o=>({...o,[k]:!o[k]}));
-  const [key,setKey]=useState(getApiKey());const [keySaved,setKeySaved]=useState(false);const impRef=useRef();
-  const [pf,setPf]=useState({...data.profile});
-  const [fbF,setFbF]=useState({type:"Bug",message:"",name:"",rating:"5"});const [fbSent,setFbSent]=useState(false);const [fbSending,setFbSending]=useState(false);
+// ── Page slide variants ──────────────────────────────────────────────────────
+const pageVariants = {
+  enterRight:  { x: "45%", opacity: 0 },
+  enterLeft:   { x: "-20%", opacity: 0 },
+  center:      { x: 0, opacity: 1 },
+  exitLeft:    { x: "-20%", opacity: 0 },
+  exitRight:   { x: "45%", opacity: 0 },
+};
+const pageTrans = { duration: 0.24, ease: [0.32, 0.72, 0, 1] };
 
-  const [wbF,setWbF]=useState({focus:"Full Body",duration:"60",equipment:"Full Gym",intensity:"Moderate",notes:""});
-  const [wbLoading,setWbLoading]=useState(false);const [wbResult,setWbResult]=useState(null);const [wbErr,setWbErr]=useState(null);
-  const [savedWorkouts,setSavedWorkouts]=useState([]);const [expandedId,setExpandedId]=useState(null);
-  const [logLoading,setLogLoading]=useState(null);const [logSuccess,setLogSuccess]=useState(null);
+// ── Reusable sub-page wrapper ────────────────────────────────────────────────
+function SubPage({ title, onBack, children }) {
+  const { theme: G } = useTheme();
+  return (
+    <motion.div
+      key="subpage"
+      initial="enterRight" animate="center" exit="exitRight"
+      variants={pageVariants} transition={pageTrans}
+    >
+      {/* Back header */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 10,
+        marginBottom: 20, paddingTop: 4,
+      }}>
+        <button onClick={onBack} style={{
+          background: G.glass, border: `1px solid ${G.glassBorder}`,
+          borderRadius: 12, width: 36, height: 36, cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0,
+        }}>
+          <IconChevronLeft size={16} color={G.txt} />
+        </button>
+        <span style={{ fontSize: 17, fontWeight: 700, color: G.txt }}>{title}</span>
+      </div>
+      {children}
+    </motion.div>
+  );
+}
 
-  useEffect(()=>{setPf({...data.profile});},[data.profile]);
-  useEffect(()=>{(async()=>{try{const s=await getData("vitals-workouts");if(s)setSavedWorkouts(s);}catch{}})();},[]);
-
-  const saveKey=()=>{setApiKey(key);setKeySaved(true);setTimeout(()=>setKeySaved(false),2000);};
-  const saveProfile=()=>{const nd={...data,profile:{...pf,targets:{calories:Number(pf.targets?.calories)||2800,protein:Number(pf.targets?.protein)||180,water:Number(pf.targets?.water)||100}}};setData(nd);sv(nd);};
-  const exp=()=>{const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`vitals-${td()}.json`;a.click();};
-  const imp=async(file)=>{try{const t=await file.text();const d=JSON.parse(t);const nd={...DEF,...d,profile:{...DEF.profile,...d?.profile,targets:{...DEF.profile.targets,...d?.profile?.targets}}};setData(nd);sv(nd);alert("Imported!");}catch(e){alert("Error: "+e.message);}};
-  const sendFb=async()=>{if(!fbF.message.trim())return;setFbSending(true);
-    const entry={...fbF,id:uid(),date:td(),time:new Date().toTimeString().slice(0,5),device:navigator.userAgent.slice(0,80)};
-    const nd={...data,feedback:[...(data.feedback||[]),entry]};setData(nd);sv(nd);
-    setFbSent(true);setFbSending(false);setFbF({type:"Bug",message:"",name:"",rating:"5"});setTimeout(()=>setFbSent(false),3000);};
-  const deleteStack=(id)=>{const nd={...data,suppStacks:(data.suppStacks||[]).filter(s=>s.id!==id)};setData(nd);sv(nd);};
-  const resPain=(id)=>{const nd={...data,painLog:data.painLog.map(p=>p.id===id?{...p,resolved:true,resolvedDate:td()}:p)};setData(nd);sv(nd);};
-  const delPain=(id)=>{const nd={...data,painLog:data.painLog.filter(p=>p.id!==id)};setData(nd);sv(nd);};
-  const delPR=(id)=>{const nd={...data,prs:data.prs.filter(p=>p.id!==id)};setData(nd);sv(nd);};
-
-  const generateWorkout=async()=>{
-    setWbLoading(true);setWbErr(null);setWbResult(null);
-    try{
-      const painH=data.painLog.filter(p=>!p.resolved).map(p=>`${p.location}(${p.type},sev:${p.severity}/10)`).join(", ");
-      const prH=data.prs.slice(-15).map(p=>`${p.exercise} ${p.repMax}@${p.weight}lbs`).join(", ");
-      const recentTrain=data.training.slice(-14).map(t=>`${t.date}:${t.name}${t.type==="Strength"?` ${t.sets}x${t.reps}@${t.weight}`:""}`).join("\n");
-      const recentPW=data.postWorkout.slice(-5).map(p=>`RPE:${p.rpe} Energy:${p.energy} Pump:${p.pump} ${p.mood}${p.soreness?` Sore:${p.soreness}`:""}`).join("\n");
-      const sleepAvg=data.sleep.length?(data.sleep.slice(-7).reduce((s,e)=>s+Number(e.hours),0)/Math.min(data.sleep.length,7)).toFixed(1):"unknown";
-      const sys=`You are a knowledgeable, supportive strength & conditioning coach building a workout for ${data.profile.name||"the user"} — ${data.profile.age||""}yo, goals: ${(data.profile.goals||[]).join(", ")||"general fitness"}. ${data.profile.allergies?`Dietary restrictions: ${data.profile.allergies} (relevant for pre/post workout nutrition tips).`:""}
-
-Be encouraging and specific — use their actual numbers and names. Never use alarming language.
-
-RECOVERY STATUS:
-Recovery score: ${intel.recoveryScore!=null?intel.recoveryScore+"/100 ("+intel.recoveryLabel+")":"unknown"}
-${intel.recoveryScore!=null&&intel.recoveryScore<50?"Their recovery is on the lower side — suggest scaling back intensity or volume.":""}
-
-MUSCLE FRESHNESS (days since last trained):
-${Object.entries(intel.muscleFreshness).map(([g,v])=>`${g}: ${v.days<999?v.days+"d ago":"not tracked"}`).join(", ")}
-Stale groups (good to hit): ${intel.staleMuscles.join(", ")||"none"}
-Recently trained (might need rest): ${intel.freshMuscles.join(", ")||"none"}
-
-CURRENT STATUS:
-Active pains: ${painH||"None"}
-Recent PRs: ${prH||"None"}
-Recent training (last 2 weeks): ${recentTrain||"None logged"}
-Recent post-workout feedback: ${recentPW||"None"}
-Average sleep: ${sleepAvg}hrs/night
-Supplement stack: ${[...new Set(data.supplements.map(s=>s.name))].join(", ")||"None"}
-
-WORKOUT REQUEST:
-Focus: ${wbF.focus}
-Duration: ${wbF.duration} minutes
-Equipment: ${wbF.equipment}
-Intensity: ${wbF.intensity}
-${wbF.notes?`Notes: ${wbF.notes}`:""}
-
-RULES:
-- AVOID exercises that would aggravate active pain points
-- PRIORITIZE stale muscle groups when the focus allows
-- Program based on their actual PRs and recent training volume
-- If RPE has been consistently high or recovery is low, suggest lighter work
-- Include specific weights based on PR data (e.g. "Squat 4x6 @ 225lbs" not "Squat 4x6 @ moderate weight")
-- Include warm-up, main work, and cool-down
-- Add explosive/plyometric work where appropriate given their goals
-- Give pre and post workout nutrition suggestions${data.profile.allergies?` (avoid: ${data.profile.allergies})`:""}
-- Format clearly with exercise name, sets, reps, weight/intensity, and rest periods
-- Be encouraging and specific — use a coaching tone, not a clinical one`;
-      const txt=await callClaude({system:sys,messages:[{role:"user",content:"Generate my workout."}],maxTokens:1500});
-      setWbResult(txt);
-    }catch(e){setWbErr(e.message||"Failed.");}setWbLoading(false);
-  };
-
-  const saveWorkout=async()=>{if(!wbResult)return;
-    const entry={id:uid(),date:td(),focus:wbF.focus,duration:wbF.duration,intensity:wbF.intensity,equipment:wbF.equipment,workout:wbResult};
-    const ns=[entry,...savedWorkouts].slice(0,20);setSavedWorkouts(ns);
-    try{await setStorageData("vitals-workouts",ns);}catch{}};
-
-  const deleteSaved=async(id)=>{const ns=savedWorkouts.filter(w=>w.id!==id);setSavedWorkouts(ns);if(expandedId===id)setExpandedId(null);try{await setStorageData("vitals-workouts",ns);}catch{}};
-
-  const logWorkoutToTraining=async(workoutText,workoutDate)=>{
-    setLogLoading(workoutDate);setLogSuccess(null);
-    try{
-      const txt=await callClaude({system:`Parse this workout plan into individual exercises. Return ONLY a JSON array of exercises. For strength exercises include sets, reps, and weight. For cardio/plyo include duration.
-Format: [{"name":"Exercise Name","type":"Strength"|"Cardio"|"Plyometrics"|"Mobility","sets":"N","reps":"N","weight":"N","duration":"N","notes":"any relevant notes like rest period or tempo"}]
-- Extract EVERY exercise from the workout (skip warm-up stretches and cool-down stretches unless they are specific exercises)
-- For weights, use the number only (no "lbs")
-- If no specific weight is given, leave weight empty
-- Include warm-up sets if they have specific weights
-- Be thorough — capture every working set`,
-        messages:[{role:"user",content:`Parse into exercises:\n${workoutText}`}]});
-      const exercises=JSON.parse(txt.replace(/```json|```/g,"").trim());
-      if(!Array.isArray(exercises)||exercises.length===0)throw new Error("No exercises parsed");
-      const entries=exercises.map(ex=>({id:uid(),type:ex.type||"Strength",name:ex.name,sets:String(ex.sets||""),reps:String(ex.reps||""),weight:String(ex.weight||""),duration:String(ex.duration||""),distance:"",notes:ex.notes||"",date:workoutDate||td()}));
-      const nd={...data,training:[...data.training,...entries]};setData(nd);sv(nd);
-      setLogSuccess(workoutDate);setTimeout(()=>setLogSuccess(null),3000);
-    }catch(e){setWbErr("Failed to parse workout: "+(e.message||""));}setLogLoading(null);
-  };
-
-  const p=data.profile;
-
-  const Sect=({id,label,icon,children})=><div style={{marginBottom:8}}>
-    <button onClick={()=>tog(id)} style={{width:"100%",background:G.glass,border:`1px solid ${G.glassBorder}`,borderRadius:open[id]?`16px 16px 0 0`:16,padding:"14px 16px",cursor:"pointer",fontFamily:"inherit",display:"flex",alignItems:"center",justifyContent:"space-between",backdropFilter:G.blur}}>
-      <span style={{fontSize:14,fontWeight:700,color:G.txt}}>{icon} {label}</span>
-      <span style={{fontSize:12,color:G.dim,transition:"transform .2s",transform:open[id]?"rotate(180deg)":"none"}}>▾</span>
+// ── Main list row ────────────────────────────────────────────────────────────
+function SettingsRow({ Icon: RowIcon, label, sub, onPress, color, last }) {
+  const { theme: G } = useTheme();
+  return (
+    <button onClick={onPress} style={{
+      width: "100%", background: G.glass, backdropFilter: G.blur,
+      border: "none",
+      borderBottom: last ? "none" : `1px solid ${G.glassBorder}`,
+      padding: "14px 16px", cursor: "pointer", fontFamily: "inherit",
+      display: "flex", alignItems: "center", gap: 14,
+      textAlign: "left",
+    }}>
+      <div style={{
+        width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+        background: `${color || G.moss}18`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <RowIcon size={16} color={color || G.moss} />
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: G.txt }}>{label}</div>
+        {sub && <div style={{ fontSize: 11, color: G.dim, marginTop: 1 }}>{sub}</div>}
+      </div>
+      <IconChevronRight size={14} color={G.dim} />
     </button>
-    {open[id]&&<div style={{background:G.glass,border:`1px solid ${G.glassBorder}`,borderTop:"none",borderRadius:"0 0 16px 16px",padding:"16px",backdropFilter:G.blur}}>{children}</div>}
-  </div>;
+  );
+}
 
-  return <div>
-    {/* ── Theme Picker ── */}
-    <Glass style={{marginBottom:14,padding:16,borderRadius:20}}>
-      <div style={{fontSize:13,fontWeight:700,color:G.sub,marginBottom:10}}>🎨 Appearance</div>
-      <div style={{display:"flex",background:G.glass2,borderRadius:12,padding:3,gap:2}}>
-        {[["light","☀️ Light"],["auto","Auto"],["dark","🌙 Dark"]].map(([m,l])=>
-          <button key={m} onClick={()=>setMode(m)}
-            style={{flex:1,padding:"8px 6px",border:"none",borderRadius:10,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit",
-              background:mode===m?`linear-gradient(135deg,${G.gMoss[0]},${G.gMoss[1]})`:"transparent",
-              color:mode===m?"#fff":G.dim,transition:"all .2s"}}>
-            {l}
-          </button>
-        )}
-      </div>
-    </Glass>
+// ── Settings rows group card ─────────────────────────────────────────────────
+function RowGroup({ children }) {
+  const { theme: G } = useTheme();
+  return (
+    <div style={{
+      background: G.glass, backdropFilter: G.blur,
+      border: `1px solid ${G.glassBorder}`,
+      borderRadius: 16, overflow: "hidden", marginBottom: 12,
+    }}>
+      {children}
+    </div>
+  );
+}
 
-    <Sect id="profile" label="Profile & Goals" icon="👤">
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,fontSize:13,marginBottom:14}}>
-        <div><span style={{color:G.dim}}>Name:</span> <span style={{fontWeight:600,color:G.txt}}>{p.name||"Not set"}</span></div>
-        <div><span style={{color:G.dim}}>Age:</span> <span style={{fontWeight:600,color:G.txt}}>{p.age||"—"}</span></div>
-        <div><span style={{color:G.dim}}>Restrictions:</span> <span style={{fontWeight:600,color:G.txt}}>{p.allergies||"None"}</span></div>
-        <div><span style={{color:G.dim}}>Units:</span> <span style={{fontWeight:600,color:G.txt}}>{p.units||"imperial"}</span></div>
-      </div>
-      {p.goals?.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:14}}>
-        {p.goals.map((g,i)=><span key={i} style={{background:`${G.moss}15`,color:G.moss,borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:600}}>{g}</span>)}
-      </div>}
-      <Fld label="Name" value={pf.name||""} set={v=>setPf({...pf,name:v})} ph="Your name"/>
-      <Fld label="Age" type="number" value={pf.age||""} set={v=>setPf({...pf,age:v})}/>
-      <Fld label="Allergies / Dietary Restrictions" value={pf.allergies||""} set={v=>setPf({...pf,allergies:v})} ph="e.g. Dairy, Gluten, Vegan"/>
-      <Fld label="Units" opts={["imperial","metric"]} value={pf.units||"imperial"} set={v=>setPf({...pf,units:v})}/>
-      <div style={{fontSize:13,fontWeight:600,color:G.sub,marginBottom:8}}>Goals</div>
-      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
-        {GOAL_OPTS.map(g=>{const active=(pf.goals||[]).includes(g);return <button key={g} onClick={()=>{const goals=active?(pf.goals||[]).filter(x=>x!==g):[...(pf.goals||[]),g];setPf({...pf,goals});}}
-          style={{background:active?`${G.moss}20`:G.glass,border:`1px solid ${active?G.moss+"40":G.glassBorder}`,borderRadius:20,padding:"6px 14px",color:active?G.moss:G.dim,fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>{active?"✓ ":""}{g}</button>;})}
-      </div>
-      <Btn onClick={saveProfile} sx={{width:"100%"}}>Save Profile</Btn>
-    </Sect>
+export default function Settings({ data, setData }) {
+  const { theme: G, mode, setMode } = useTheme();
+  const [page, setPage] = useState(null);
+  const [direction, setDirection] = useState(1);
 
-    <Sect id="targets" label="Daily Targets" icon="🎯">
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:14}}>
-        {[{l:"Calories",v:p.targets?.calories||2800,c:G.moss},{l:"Protein",v:(p.targets?.protein||180)+"g",c:G.orange},{l:"Water",v:(p.targets?.water||100)+"oz",c:G.teal}].map((t,i)=>
-          <div key={i} style={{textAlign:"center",background:G.glass2,borderRadius:12,padding:"10px 6px"}}>
-            <div style={{fontSize:20,fontWeight:800,color:t.c}}>{t.v}</div>
-            <div style={{fontSize:10,color:G.dim,fontWeight:600}}>{t.l}</div>
-          </div>)}
-      </div>
-      <div style={{display:"flex",gap:8}}>
-        <div style={{flex:1}}><Fld label="Calories" type="number" value={pf.targets?.calories||""} set={v=>setPf({...pf,targets:{...pf.targets,calories:v}})}/></div>
-        <div style={{flex:1}}><Fld label="Protein (g)" type="number" value={pf.targets?.protein||""} set={v=>setPf({...pf,targets:{...pf.targets,protein:v}})}/></div>
-      </div>
-      <Fld label="Water (oz)" type="number" value={pf.targets?.water||""} set={v=>setPf({...pf,targets:{...pf.targets,water:v}})}/>
-      <Btn onClick={saveProfile} sx={{width:"100%"}}>Save Targets</Btn>
-    </Sect>
+  const [key, setKey] = useState(getApiKey());
+  const [keySaved, setKeySaved] = useState(false);
+  const impRef = useRef();
+  const [pf, setPf] = useState({ ...data.profile });
+  const [fbF, setFbF] = useState({ type: "Bug", message: "", name: "", rating: "5" });
+  const [fbSent, setFbSent] = useState(false);
+  const [fbSending, setFbSending] = useState(false);
 
-    <Sect id="apikey" label="API Key" icon="🔑">
-      <div style={{fontSize:12,color:G.dim,marginBottom:10}}>Required for AI features. Stored on device only.</div>
-      <Fld type="password" value={key} set={setKey} ph="sk-ant-..."/>
-      <div style={{display:"flex",gap:8,alignItems:"center"}}>
-        <Btn onClick={saveKey} sx={{flex:1}}>Save</Btn>
-        {keySaved&&<span style={{color:G.moss,fontSize:13,fontWeight:600}}>✓ Saved</span>}
-      </div>
-    </Sect>
+  useEffect(() => { setPf({ ...data.profile }); }, [data.profile]);
 
-    <Sect id="workout" label="Workout Builder" icon="⚡">
-      <Glass glow={`radial-gradient(circle,${G.amber}20,transparent 70%)`} style={{marginBottom:16,borderRadius:20,padding:20}}>
-        <div style={{fontSize:14,color:G.txt,fontWeight:700,marginBottom:4}}>AI-Powered Programming</div>
-        <div style={{fontSize:12,color:G.dim,lineHeight:1.5,marginBottom:14}}>Builds workouts using your PRs, pain points, recovery data, and muscle freshness.</div>
-        <Fld label="Focus" opts={["Full Body","Upper Body","Lower Body","Push","Pull","Legs","Chest & Triceps","Back & Biceps","Shoulders","Arms","Core","Explosive/Plyo","Active Recovery"]} value={wbF.focus} set={v=>setWbF({...wbF,focus:v})}/>
-        <div style={{display:"flex",gap:8}}>
-          <div style={{flex:1}}><Fld label="Duration (min)" opts={["30","45","60","75","90"]} value={wbF.duration} set={v=>setWbF({...wbF,duration:v})}/></div>
-          <div style={{flex:1}}><Fld label="Intensity" opts={["Light","Moderate","High","Max Effort"]} value={wbF.intensity} set={v=>setWbF({...wbF,intensity:v})}/></div>
-        </div>
-        <Fld label="Equipment" opts={["Full Gym","Dumbbells Only","Barbell & Rack","Bodyweight","Home Gym","Cables & Machines"]} value={wbF.equipment} set={v=>setWbF({...wbF,equipment:v})}/>
-        <Fld label="Notes (optional)" type="textarea" value={wbF.notes} set={v=>setWbF({...wbF,notes:v})} ph="e.g. Want to hit heavy squats today, feeling good"/>
-        <Btn onClick={generateWorkout} disabled={wbLoading} sx={{width:"100%",padding:14,fontSize:15}}>{wbLoading?"Building workout...":"⚡ Generate Workout"}</Btn>
-      </Glass>
-      {wbErr&&<Glass style={{marginBottom:14,borderRadius:16}}><div style={{color:G.red,fontSize:13}}>{wbErr}</div></Glass>}
-      {wbResult&&<Glass style={{borderRadius:20,marginBottom:14}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <div><div style={{fontSize:14,fontWeight:700,color:G.txt}}>{wbF.focus}</div><div style={{fontSize:11,color:G.dim}}>{wbF.duration}min · {wbF.intensity} · {wbF.equipment}</div></div>
-          <Btn onClick={saveWorkout} v="secondary" sx={{fontSize:11,padding:"6px 12px"}}>💾 Save</Btn>
-        </div>
-        <div style={{fontSize:13,color:G.sub,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{wbResult}</div>
-        <div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${G.glassBorder}`}}>
-          <Btn onClick={()=>logWorkoutToTraining(wbResult,td())} disabled={logLoading===td()} sx={{width:"100%",padding:12}} v="primary">
-            {logLoading===td()?"⏳ Parsing exercises...":logSuccess===td()?"✓ Logged to Training!":"📋 Log All Exercises to Training"}
-          </Btn>
-        </div>
-      </Glass>}
-      {savedWorkouts.length>0&&<div>
-        <div style={{fontSize:11,fontWeight:700,color:G.dim,letterSpacing:1,marginBottom:8}}>SAVED WORKOUTS ({savedWorkouts.length})</div>
-        {savedWorkouts.map(w=>{const isExp=expandedId===w.id;return <Glass key={w.id} style={{marginBottom:8,borderRadius:16,cursor:"pointer"}} onClick={()=>setExpandedId(isExp?null:w.id)}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div style={{flex:1}}>
-              <div style={{display:"flex",alignItems:"center",gap:6}}>
-                <span style={{fontSize:13,fontWeight:700,color:G.txt}}>{w.focus}</span>
-                <span style={{fontSize:10,color:G.dim,background:G.glass2,padding:"2px 7px",borderRadius:8}}>{w.duration}min</span>
-                {w.intensity&&<span style={{fontSize:10,color:G.amber,background:`${G.amber}15`,padding:"2px 7px",borderRadius:8}}>{w.intensity}</span>}
+  const navigate = (dest) => { setDirection(1); setPage(dest); };
+  const goBack   = () => { setDirection(-1); setPage(null); };
+
+  const saveKey     = () => { setApiKey(key); setKeySaved(true); setTimeout(() => setKeySaved(false), 2000); };
+  const saveProfile = () => { const nd = { ...data, profile: { ...pf, targets: { calories: Number(pf.targets?.calories) || 2800, protein: Number(pf.targets?.protein) || 180, water: Number(pf.targets?.water) || 100 } } }; setData(nd); sv(nd); };
+  const exp = () => { const b = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); const u = URL.createObjectURL(b); const a = document.createElement("a"); a.href = u; a.download = `vitals-${td()}.json`; a.click(); };
+  const imp = async (file) => { try { const t = await file.text(); const d = JSON.parse(t); const nd = { ...DEF, ...d, profile: { ...DEF.profile, ...d?.profile, targets: { ...DEF.profile.targets, ...d?.profile?.targets } } }; setData(nd); sv(nd); alert("Imported!"); } catch (e) { alert("Error: " + e.message); } };
+  const sendFb = async () => {
+    if (!fbF.message.trim()) return; setFbSending(true);
+    const entry = { ...fbF, id: uid(), date: td(), time: new Date().toTimeString().slice(0, 5), device: navigator.userAgent.slice(0, 80) };
+    const nd = { ...data, feedback: [...(data.feedback || []), entry] }; setData(nd); sv(nd);
+    setFbSent(true); setFbSending(false); setFbF({ type: "Bug", message: "", name: "", rating: "5" }); setTimeout(() => setFbSent(false), 3000);
+  };
+  const deleteStack = (id) => { const nd = { ...data, suppStacks: (data.suppStacks || []).filter(s => s.id !== id) }; setData(nd); sv(nd); };
+  const resPain  = (id) => { const nd = { ...data, painLog: data.painLog.map(p => p.id === id ? { ...p, resolved: true, resolvedDate: td() } : p) }; setData(nd); sv(nd); };
+  const delPain  = (id) => { const nd = { ...data, painLog: data.painLog.filter(p => p.id !== id) }; setData(nd); sv(nd); };
+  const delPR    = (id) => { const nd = { ...data, prs: data.prs.filter(p => p.id !== id) }; setData(nd); sv(nd); };
+
+  const p = data.profile;
+
+  // ── Shared enter/exit for main list ────────────────────────────────────────
+  const mainVariants = {
+    enter:  { x: direction < 0 ? "30%" : "-10%", opacity: 0 },
+    center: { x: 0, opacity: 1 },
+    exit:   { x: direction > 0 ? "-10%" : "30%", opacity: 0 },
+  };
+
+  return (
+    <div style={{ position: "relative", overflow: "hidden" }}>
+      <AnimatePresence mode="wait" initial={false} custom={direction}>
+
+        {/* ══════════════════════════════════════════
+            MAIN SETTINGS LIST
+        ═══════════════════════════════════════════ */}
+        {page === null && (
+          <motion.div
+            key="main"
+            initial="enter" animate="center" exit="exit"
+            variants={mainVariants} transition={pageTrans}
+          >
+            {/* Appearance */}
+            <Glass style={{ marginBottom: 16, padding: 16, borderRadius: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 12 }}>
+                <IconSun size={15} color={G.sub} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: G.sub }}>Appearance</span>
               </div>
-              <div style={{fontSize:11,color:G.dim,marginTop:3}}>{w.date}{w.equipment?` · ${w.equipment}`:""}</div>
+              <div style={{ display: "flex", background: G.glass2, borderRadius: 12, padding: 3, gap: 2 }}>
+                {[["light", IconSun, "Light"], ["auto", null, "Auto"], ["dark", IconMoon, "Dark"]].map(([m, MIcon, l]) => (
+                  <button key={m} onClick={() => setMode(m)} style={{
+                    flex: 1, padding: "8px 6px", border: "none", borderRadius: 10,
+                    fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                    background: mode === m ? `linear-gradient(135deg,${G.gMoss[0]},${G.gMoss[1]})` : "transparent",
+                    color: mode === m ? "#fff" : G.dim, transition: "all .2s",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                  }}>
+                    {MIcon && <MIcon size={12} color={mode === m ? "#fff" : G.dim} />}
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </Glass>
+
+            {/* Account group */}
+            <div style={{ fontSize: 11, fontWeight: 700, color: G.dim, letterSpacing: 1.2, marginBottom: 6, paddingLeft: 4 }}>ACCOUNT</div>
+            <RowGroup>
+              <SettingsRow Icon={IconUser} label="Profile & Goals" sub={p.name || "Not set up"} color={G.moss} onPress={() => navigate("profile")} />
+              <SettingsRow Icon={IconTarget} label="Daily Targets" sub={`${p.targets?.calories || 2800} cal · ${p.targets?.protein || 180}g protein`} color={G.orange} onPress={() => navigate("targets")} />
+              <SettingsRow Icon={IconKey} label="API Key" sub={getApiKey() ? "Key saved" : "Required for AI"} color={G.purple} onPress={() => navigate("apikey")} last />
+            </RowGroup>
+
+            {/* Health group */}
+            <div style={{ fontSize: 11, fontWeight: 700, color: G.dim, letterSpacing: 1.2, marginBottom: 6, paddingLeft: 4 }}>HEALTH DATA</div>
+            <RowGroup>
+              <SettingsRow Icon={IconPill} label="Supplement Stacks" sub={`${(data.suppStacks || []).length} saved`} color={G.purple} onPress={() => navigate("stacks")} />
+              <SettingsRow Icon={IconAlertCircle} label="Pain Log" sub={`${data.painLog.filter(p => !p.resolved).length} active`} color={G.red} onPress={() => navigate("pain")} />
+              <SettingsRow Icon={IconTrophy} label="Personal Records" sub={`${data.prs.length} PRs`} color={G.amber} onPress={() => navigate("prs")} last />
+            </RowGroup>
+
+            {/* App group */}
+            <div style={{ fontSize: 11, fontWeight: 700, color: G.dim, letterSpacing: 1.2, marginBottom: 6, paddingLeft: 4 }}>APP</div>
+            <RowGroup>
+              <SettingsRow Icon={IconMessage} label="Feedback" sub="Bugs, requests, ideas" color={G.teal} onPress={() => navigate("feedback")} />
+              <SettingsRow Icon={IconDatabase} label="Data & Storage" sub="Export, import, clear" color={G.blue} onPress={() => navigate("data")} last />
+            </RowGroup>
+
+            <div style={{ fontSize: 11, color: G.dim, textAlign: "center", marginTop: 8, lineHeight: 1.7 }}>
+              Vitals v10.4 · On-device storage · Claude AI
             </div>
-            <span style={{fontSize:14,color:G.dim,transition:"transform .2s",transform:isExp?"rotate(180deg)":"none"}}>▾</span>
-          </div>
-          {isExp&&<div onClick={e=>e.stopPropagation()}>
-            <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${G.glassBorder}`,fontSize:13,color:G.sub,lineHeight:1.7,whiteSpace:"pre-wrap",maxHeight:400,overflow:"auto"}}>{w.workout}</div>
-            <div style={{display:"flex",gap:8,marginTop:10,paddingTop:10,borderTop:`1px solid ${G.glassBorder}`}}>
-              <Btn onClick={()=>logWorkoutToTraining(w.workout,w.date)} disabled={logLoading===w.date} sx={{flex:1,padding:10,fontSize:12}} v="primary">
-                {logLoading===w.date?"Parsing...":logSuccess===w.date?"✓ Logged!":"📋 Log to Training"}
+          </motion.div>
+        )}
+
+        {/* ══════════════════════════════════════════
+            PROFILE & GOALS
+        ═══════════════════════════════════════════ */}
+        {page === "profile" && (
+          <SubPage title="Profile & Goals" onBack={goBack}>
+            {p.name && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18 }}>
+                {[["Name", p.name], ["Age", p.age || "—"], ["Units", p.units || "imperial"], ["Restrictions", p.allergies || "None"]].map(([l, v]) => (
+                  <div key={l} style={{ background: G.glass, border: `1px solid ${G.glassBorder}`, borderRadius: 14, padding: "10px 14px" }}>
+                    <div style={{ fontSize: 10, color: G.dim, fontWeight: 700, letterSpacing: 0.8, marginBottom: 3 }}>{l.toUpperCase()}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: G.txt }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {p.goals?.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 18 }}>
+                {p.goals.map((g, i) => <span key={i} style={{ background: `${G.moss}15`, color: G.moss, borderRadius: 20, padding: "4px 12px", fontSize: 12, fontWeight: 600 }}>{g}</span>)}
+              </div>
+            )}
+            <Fld label="Name" value={pf.name || ""} set={v => setPf({ ...pf, name: v })} ph="Your name" />
+            <Fld label="Age" type="number" value={pf.age || ""} set={v => setPf({ ...pf, age: v })} />
+            <Fld label="Allergies / Dietary Restrictions" value={pf.allergies || ""} set={v => setPf({ ...pf, allergies: v })} ph="e.g. Dairy, Gluten, Vegan" />
+            <Fld label="Units" opts={["imperial", "metric"]} value={pf.units || "imperial"} set={v => setPf({ ...pf, units: v })} />
+            <div style={{ fontSize: 13, fontWeight: 600, color: G.sub, marginBottom: 10 }}>Goals</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 18 }}>
+              {GOAL_OPTS.map(g => {
+                const isActive = (pf.goals || []).includes(g);
+                return (
+                  <button key={g} onClick={() => { const goals = isActive ? (pf.goals || []).filter(x => x !== g) : [...(pf.goals || []), g]; setPf({ ...pf, goals }); }} style={{
+                    background: isActive ? `${G.moss}20` : G.glass, border: `1px solid ${isActive ? G.moss + "40" : G.glassBorder}`,
+                    borderRadius: 20, padding: "6px 14px", color: isActive ? G.moss : G.dim,
+                    fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                    display: "flex", alignItems: "center", gap: 5,
+                  }}>
+                    {isActive && <IconCheck size={11} color={G.moss} />}{g}
+                  </button>
+                );
+              })}
+            </div>
+            <Btn onClick={saveProfile} sx={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+              <IconSave size={14} color="currentColor" />Save Profile
+            </Btn>
+          </SubPage>
+        )}
+
+        {/* ══════════════════════════════════════════
+            DAILY TARGETS
+        ═══════════════════════════════════════════ */}
+        {page === "targets" && (
+          <SubPage title="Daily Targets" onBack={goBack}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 20 }}>
+              {[{ l: "Calories", v: p.targets?.calories || 2800, c: G.moss }, { l: "Protein", v: (p.targets?.protein || 180) + "g", c: G.orange }, { l: "Water", v: (p.targets?.water || 100) + "oz", c: G.teal }].map((t, i) => (
+                <div key={i} style={{ textAlign: "center", background: G.glass, border: `1px solid ${G.glassBorder}`, borderRadius: 14, padding: "14px 6px" }}>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: t.c }}>{t.v}</div>
+                  <div style={{ fontSize: 10, color: G.dim, fontWeight: 700, marginTop: 3 }}>{t.l}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ flex: 1 }}><Fld label="Calories" type="number" value={pf.targets?.calories || ""} set={v => setPf({ ...pf, targets: { ...pf.targets, calories: v } })} /></div>
+              <div style={{ flex: 1 }}><Fld label="Protein (g)" type="number" value={pf.targets?.protein || ""} set={v => setPf({ ...pf, targets: { ...pf.targets, protein: v } })} /></div>
+            </div>
+            <Fld label="Water (oz)" type="number" value={pf.targets?.water || ""} set={v => setPf({ ...pf, targets: { ...pf.targets, water: v } })} />
+            <Btn onClick={saveProfile} sx={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+              <IconSave size={14} color="currentColor" />Save Targets
+            </Btn>
+          </SubPage>
+        )}
+
+        {/* ══════════════════════════════════════════
+            API KEY
+        ═══════════════════════════════════════════ */}
+        {page === "apikey" && (
+          <SubPage title="API Key" onBack={goBack}>
+            <Glass style={{ marginBottom: 16, borderRadius: 16, padding: 16, borderLeft: `3px solid ${G.purple}` }}>
+              <div style={{ fontSize: 13, color: G.sub, lineHeight: 1.65 }}>
+                Required for all AI features — coaching, macro analysis, workout generation, and health imports. Your key is stored on this device only and never sent anywhere except directly to Anthropic.
+              </div>
+            </Glass>
+            <Fld type="password" value={key} set={setKey} ph="sk-ant-..." />
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <Btn onClick={saveKey} sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                <IconSave size={14} color="currentColor" />Save Key
               </Btn>
-              <Btn onClick={()=>deleteSaved(w.id)} v="danger" sx={{padding:"10px 14px",fontSize:12}}>🗑</Btn>
+              {keySaved && (
+                <div style={{ display: "flex", alignItems: "center", gap: 5, color: G.moss, fontSize: 13, fontWeight: 600 }}>
+                  <IconCheck size={14} color={G.moss} />Saved
+                </div>
+              )}
             </div>
-          </div>}
-        </Glass>;})}
-      </div>}
-    </Sect>
+          </SubPage>
+        )}
 
-    <Sect id="stacks" label="Supplement Stacks" icon="💊">
-      {(data.suppStacks||[]).length===0?<div style={{color:G.dim,fontSize:13}}>No stacks saved. Log supplements and save them as a stack from the Log tab.</div>:
-        (data.suppStacks||[]).map(stack=><Glass key={stack.id} style={{marginBottom:8,borderRadius:14,padding:"10px 14px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-            <span style={{fontSize:14,fontWeight:700,color:G.purple}}>{stack.name}</span>
-            <button onClick={()=>deleteStack(stack.id)} style={{background:G.glass2,border:"none",width:26,height:26,borderRadius:13,color:G.dim,cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
-          </div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-            {stack.items.map((item,i)=><span key={i} style={{background:`${G.purple}12`,color:G.sub,borderRadius:8,padding:"3px 8px",fontSize:11}}>{item.name}{item.dosage?` ${item.dosage}`:""}</span>)}
-          </div>
-        </Glass>)}
-    </Sect>
+        {/* ══════════════════════════════════════════
+            SUPPLEMENT STACKS
+        ═══════════════════════════════════════════ */}
+        {page === "stacks" && (
+          <SubPage title="Supplement Stacks" onBack={goBack}>
+            {(data.suppStacks || []).length === 0
+              ? <div style={{ color: G.dim, fontSize: 13, lineHeight: 1.7, textAlign: "center", paddingTop: 24 }}>
+                  No stacks saved yet. Log supplements in the Log tab and save them as a stack from there.
+                </div>
+              : (data.suppStacks || []).map(stack => (
+                <Glass key={stack.id} style={{ marginBottom: 10, borderRadius: 16, padding: "14px 16px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: G.purple }}>{stack.name}</span>
+                    <button onClick={() => deleteStack(stack.id)} style={{
+                      background: `${G.red}15`, border: `1px solid ${G.red}20`, borderRadius: 8,
+                      width: 30, height: 30, color: G.red, cursor: "pointer",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>
+                      <IconTrash size={13} color={G.red} />
+                    </button>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                    {stack.items.map((item, i) => (
+                      <span key={i} style={{ background: `${G.purple}12`, color: G.sub, borderRadius: 20, padding: "4px 10px", fontSize: 12 }}>
+                        {item.name}{item.dosage ? ` · ${item.dosage}` : ""}
+                      </span>
+                    ))}
+                  </div>
+                </Glass>
+              ))}
+          </SubPage>
+        )}
 
-    <Sect id="pain" label="Pain Log" icon="🩹">
-      {data.painLog.length===0?<div style={{color:G.dim,fontSize:13}}>No pain entries.</div>:<>
-        {data.painLog.filter(p=>!p.resolved).length>0&&<div style={{marginBottom:10}}>
-          <div style={{fontSize:10,fontWeight:700,color:G.dim,marginBottom:6}}>ACTIVE</div>
-          {data.painLog.filter(p=>!p.resolved).map(p=><Glass key={p.id} style={{marginBottom:6,padding:"10px 14px",borderRadius:14,display:"flex",alignItems:"center"}}>
-            <div style={{flex:1}}><div style={{fontSize:13,color:G.red,fontWeight:600}}>{p.location} — {p.type}</div><div style={{fontSize:11,color:G.dim}}>{p.date} · Sev:{p.severity}/10</div></div>
-            <div style={{display:"flex",gap:6}}>
-              <Btn onClick={()=>resPain(p.id)} v="ghost" sx={{fontSize:11,padding:"4px 8px",color:G.moss}}>✓ Resolve</Btn>
-              <button onClick={()=>delPain(p.id)} style={{background:G.glass2,border:"none",width:26,height:26,borderRadius:13,color:G.dim,cursor:"pointer",fontSize:12}}>✕</button>
+        {/* ══════════════════════════════════════════
+            PAIN LOG
+        ═══════════════════════════════════════════ */}
+        {page === "pain" && (
+          <SubPage title="Pain Log" onBack={goBack}>
+            {data.painLog.length === 0
+              ? <div style={{ color: G.dim, fontSize: 13, textAlign: "center", paddingTop: 24 }}>No pain entries.</div>
+              : <>
+                {data.painLog.filter(p => !p.resolved).length > 0 && (
+                  <div style={{ marginBottom: 18 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: G.red, letterSpacing: 1, marginBottom: 10 }}>ACTIVE</div>
+                    {data.painLog.filter(p => !p.resolved).map(p => (
+                      <Glass key={p.id} style={{ marginBottom: 8, padding: "12px 16px", borderRadius: 16, borderLeft: `3px solid ${G.red}` }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 14, color: G.red, fontWeight: 700 }}>{p.location}</div>
+                            <div style={{ fontSize: 12, color: G.dim, marginTop: 2 }}>{p.type} · Severity {p.severity}/10 · {p.date}</div>
+                          </div>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <Btn onClick={() => resPain(p.id)} v="ghost" sx={{ fontSize: 11, padding: "5px 10px", display: "flex", alignItems: "center", gap: 4, color: G.moss }}>
+                              <IconCheck size={11} color={G.moss} />Resolve
+                            </Btn>
+                            <button onClick={() => delPain(p.id)} style={{
+                              background: `${G.red}12`, border: `1px solid ${G.red}20`, borderRadius: 8,
+                              width: 30, height: 30, cursor: "pointer",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                            }}>
+                              <IconTrash size={13} color={G.red} />
+                            </button>
+                          </div>
+                        </div>
+                      </Glass>
+                    ))}
+                  </div>
+                )}
+                {data.painLog.filter(p => p.resolved).length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: G.dim, letterSpacing: 1, marginBottom: 10 }}>RESOLVED</div>
+                    {data.painLog.filter(p => p.resolved).slice().reverse().slice(0, 8).map(p => (
+                      <EI key={p.id} primary={`${p.location} — ${p.type}`} secondary={`${p.date} · Sev:${p.severity}/10`} color={G.moss} onDelete={() => delPain(p.id)} />
+                    ))}
+                  </div>
+                )}
+              </>}
+          </SubPage>
+        )}
+
+        {/* ══════════════════════════════════════════
+            PERSONAL RECORDS
+        ═══════════════════════════════════════════ */}
+        {page === "prs" && (
+          <SubPage title="Personal Records" onBack={goBack}>
+            {data.prs.length === 0
+              ? <div style={{ color: G.dim, fontSize: 13, lineHeight: 1.7, textAlign: "center", paddingTop: 24 }}>
+                  No PRs yet. Log exercises with sets, reps, and weight — PRs are detected automatically.
+                </div>
+              : data.prs.slice().reverse().map(p => (
+                <EI key={p.id} primary={`${p.exercise} ${p.repMax}`} secondary={p.date} tertiary={`${p.weight}lbs`} color={G.amber} onDelete={() => delPR(p.id)} />
+              ))}
+          </SubPage>
+        )}
+
+        {/* ══════════════════════════════════════════
+            FEEDBACK
+        ═══════════════════════════════════════════ */}
+        {page === "feedback" && (
+          <SubPage title="Feedback" onBack={goBack}>
+            <Fld label="Your Name (optional)" value={fbF.name} set={v => setFbF({ ...fbF, name: v })} ph="Anonymous" />
+            <Fld label="Type" opts={["Bug", "Feature Request", "UI/Design", "Performance", "Other"]} value={fbF.type} set={v => setFbF({ ...fbF, type: v })} />
+            <Slider label="Overall Rating" value={fbF.rating} set={v => setFbF({ ...fbF, rating: v })} min={1} max={10} color={Number(fbF.rating) >= 7 ? G.moss : Number(fbF.rating) >= 4 ? G.orange : G.red} />
+            <Fld label="Message" type="textarea" value={fbF.message} set={v => setFbF({ ...fbF, message: v })} ph="What happened? What would you like to see?" />
+            <Btn onClick={sendFb} disabled={fbSending || !fbF.message.trim()} sx={{ width: "100%", padding: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+              {fbSent ? <><IconCheck size={14} color="currentColor" />Sent — thank you</> : fbSending ? "Sending…" : "Send Feedback"}
+            </Btn>
+          </SubPage>
+        )}
+
+        {/* ══════════════════════════════════════════
+            DATA & STORAGE
+        ═══════════════════════════════════════════ */}
+        {page === "data" && (
+          <SubPage title="Data & Storage" onBack={goBack}>
+            <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+              <Btn onClick={exp} v="secondary" sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                <IconUpload size={14} color="currentColor" />Export
+              </Btn>
+              <Btn onClick={() => impRef.current?.click()} v="secondary" sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                <IconDownload size={14} color="currentColor" />Import
+              </Btn>
+              <input ref={impRef} type="file" accept=".json" style={{ display: "none" }} onChange={e => { if (e.target.files[0]) imp(e.target.files[0]); }} />
             </div>
-          </Glass>)}
-        </div>}
-        {data.painLog.filter(p=>p.resolved).length>0&&<div>
-          <div style={{fontSize:10,fontWeight:700,color:G.dim,marginBottom:6}}>RESOLVED</div>
-          {data.painLog.filter(p=>p.resolved).slice().reverse().slice(0,5).map(p=><EI key={p.id} primary={`${p.location} — ${p.type}`} secondary={`${p.date} · Sev:${p.severity}/10 · resolved`} color={G.moss} onDelete={()=>delPain(p.id)}/>)}
-        </div>}
-      </>}
-    </Sect>
+            <Glass style={{ marginBottom: 16, borderRadius: 14, padding: 14 }}>
+              <div style={{ fontSize: 12, color: G.dim, lineHeight: 1.7 }}>
+                All data is stored on this device only — nothing is sent to external servers. Export regularly as a backup.
+              </div>
+            </Glass>
+            <div style={{ height: 1, background: G.glassBorder, marginBottom: 16 }} />
+            <Btn onClick={() => { if (confirm("Delete ALL data? This cannot be undone.")) { setData(DEF); sv(DEF); } }} v="danger" sx={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+              <IconTrash size={14} color="currentColor" />Clear All Data
+            </Btn>
+            <div style={{ marginTop: 18, fontSize: 11, color: G.dim, textAlign: "center", lineHeight: 1.7 }}>
+              Vitals v10.4 · Coach-First · IndexedDB · Claude AI
+            </div>
+          </SubPage>
+        )}
 
-    <Sect id="prs" label="Personal Records" icon="🏆">
-      {data.prs.length===0?<div style={{color:G.dim,fontSize:13}}>No PRs yet. Log exercises with sets/reps/weight to auto-detect PRs.</div>:
-        data.prs.slice().reverse().map(p=><EI key={p.id} primary={`${p.exercise} ${p.repMax}`} secondary={p.date} tertiary={`${p.weight}lbs`} color={G.moss} onDelete={()=>delPR(p.id)}/>)}
-    </Sect>
-
-    <Sect id="feedback" label="Feedback" icon="💬">
-      <Fld label="Your Name (optional)" value={fbF.name} set={v=>setFbF({...fbF,name:v})} ph="Anonymous"/>
-      <Fld label="Type" opts={["Bug","Feature Request","UI/Design","Performance","Other"]} value={fbF.type} set={v=>setFbF({...fbF,type:v})}/>
-      <Slider label="Overall Rating" value={fbF.rating} set={v=>setFbF({...fbF,rating:v})} min={1} max={10} color={Number(fbF.rating)>=7?G.moss:Number(fbF.rating)>=4?G.orange:G.red}/>
-      <Fld label="Message" type="textarea" value={fbF.message} set={v=>setFbF({...fbF,message:v})} ph="What happened? What would you like to see?"/>
-      <Btn onClick={sendFb} disabled={fbSending||!fbF.message.trim()} sx={{width:"100%",padding:13}}>
-        {fbSending?"Sending...":fbSent?"✓ Sent! Thank you":"Send Feedback"}
-      </Btn>
-    </Sect>
-
-    <Sect id="data" label="Data & Storage" icon="💾">
-      <div style={{display:"flex",gap:8,marginBottom:10}}>
-        <Btn onClick={exp} v="secondary" sx={{flex:1}}>📤 Export</Btn>
-        <Btn onClick={()=>impRef.current?.click()} v="secondary" sx={{flex:1}}>📥 Import</Btn>
-        <input ref={impRef} type="file" accept=".json" style={{display:"none"}} onChange={e=>{if(e.target.files[0])imp(e.target.files[0]);}}/>
-      </div>
-      <Btn onClick={()=>{if(confirm("Delete ALL data? Cannot be undone.")){setData(DEF);sv(DEF);}}} v="danger" sx={{width:"100%"}}>Clear All Data</Btn>
-      <div style={{marginTop:14,fontSize:11,color:G.dim,lineHeight:1.6}}>Vitals v10.1 · Coach-First · IndexedDB · Claude AI · Data stored on device only.</div>
-    </Sect>
-  </div>;
+      </AnimatePresence>
+    </div>
+  );
 }
